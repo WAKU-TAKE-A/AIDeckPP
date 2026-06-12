@@ -1,0 +1,20 @@
+slides:
+  - title: "Reordered Flow Slide"
+    elements:
+      - flow:
+          direction: "horizontal"
+          nodes:
+            - id: "step1"
+              label: "First"
+            - id: "step2"
+              label: "Second"
+            - id: "step3"
+              label: "Third"
+          edges:
+            # Reordered and non-adjacent
+            - from: "step3"
+              to: "step1"
+            - from: "step1"
+              to: "step3"
+            - from: "step2"
+              to: "step2"

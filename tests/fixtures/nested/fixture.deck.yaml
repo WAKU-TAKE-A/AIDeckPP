@@ -1,0 +1,4 @@
+slides:
+  - title: "Nested Slide"
+    elements:
+      - image: "sample_image.png"

@@ -1,0 +1,14 @@
+title: "Multi Error Deck"
+orientation: diagonal
+slides:
+  - title: "Slide 1"
+    elements:
+      - image: "nonexistent1.png"
+      - flow:
+          direction: circular
+          nodes:
+            - id: n1
+              label: Node 1
+          edges:
+            - from: n1
+              to: bad_node

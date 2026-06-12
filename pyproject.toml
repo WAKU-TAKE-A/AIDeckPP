@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deck2pptx"
+version = "0.1.0"
+license = "MIT"
+dependencies = [
+    "python-pptx",
+    "pyyaml",
+    "pillow"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest"
+]
+
+[project.scripts]
+deck2pptx = "deck2pptx.__main__:main"
+
+[tool.setuptools]
+packages = ["deck2pptx"]

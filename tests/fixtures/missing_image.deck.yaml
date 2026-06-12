@@ -1,0 +1,4 @@
+slides:
+  - title: "Missing Image Test"
+    elements:
+      - image: "nonexistent.png"

@@ -1,0 +1,9 @@
+title: "Portrait Deck"
+orientation: "portrait"
+slides:
+  - title: "Portrait Mode"
+    subtitle: "A tall slide"
+    layout_hint: "title"
+  - title: "Content Slide"
+    elements:
+      - text: "This slide is tall and skinny."

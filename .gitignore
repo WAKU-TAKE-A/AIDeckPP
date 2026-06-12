@@ -1,0 +1,25 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+.venv-release/
+env/
+venv/
+
+# Packaging metadata
+*.egg-info/
+dist/
+build/
+
+# Pytest cache
+.pytest_cache/
+
+# Generated outputs
+outputs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
