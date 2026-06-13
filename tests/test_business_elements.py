@@ -245,6 +245,6 @@ slides:
         and shape.width < shape.height
     ]
 
-    assert label_shapes[0].text_frame.paragraphs[0].font.color.rgb == RGBColor(0x1F, 0x5F, 0x99)
-    assert title_shapes[0].text_frame.paragraphs[0].font.color.rgb == RGBColor(0x0B, 0x2F, 0x4F)
-    assert line_shapes[0].fill.fore_color.rgb == RGBColor(0x1F, 0x5F, 0x99)
+    assert label_shapes[0].text_frame.paragraphs[0].font.color.rgb == RGBColor(0x25, 0x63, 0xEB)
+    assert title_shapes[0].text_frame.paragraphs[0].font.color.rgb == RGBColor(0x1E, 0x3A, 0x8A)
+    assert line_shapes[0].fill.fore_color.rgb == RGBColor(0x25, 0x63, 0xEB)
