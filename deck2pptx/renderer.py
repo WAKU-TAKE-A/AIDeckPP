@@ -369,6 +369,20 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 
                 node_positions = {}
                 
+                def style_flow_node(shape):
+                    shape.fill.solid()
+                    shape.fill.fore_color.rgb = theme.color_flow_fill
+                    shape.line.color.rgb = theme.color_flow_line
+                    for p in shape.text_frame.paragraphs:
+                        p.font.name = theme.font_name
+                        p.font.size = theme.size_body_small
+                        p.font.color.rgb = theme.color_flow_text
+                
+                def style_flow_arrow(shape):
+                    shape.fill.solid()
+                    shape.fill.fore_color.rgb = theme.color_flow_line
+                    shape.line.color.rgb = theme.color_flow_line
+                
                 if element.direction == 'horizontal':
                     for i, node in enumerate(element.nodes):
                         x = content_x + i * (node_width + Inches(0.5))
@@ -378,12 +392,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             x, y, node_width, node_height
                         )
                         shape.text = node.label
-                        shape.fill.solid()
-                        shape.fill.fore_color.rgb = theme.color_accent
-                        shape.line.color.rgb = theme.color_accent
-                        for p in shape.text_frame.paragraphs:
-                            p.font.name = theme.font_name
-                            p.font.size = theme.size_body_small
+                        style_flow_node(shape)
                         node_positions[node.id] = (x + node_width, y + node_height / 2) # right center for out, left center for in
                         # Actually let's just store the right-center and left-center
                         node_positions[f"{node.id}_out"] = (x + node_width, y + node_height / 2)
@@ -403,10 +412,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                                 arrow_width = max(fx - tx, Inches(0.1))
                                 shape_type = MSO_SHAPE.LEFT_ARROW
                                 
-                            slide.shapes.add_shape(
+                            arrow = slide.shapes.add_shape(
                                 shape_type,
                                 arrow_x, fy - Inches(0.1), arrow_width, Inches(0.2)
                             )
+                            style_flow_arrow(arrow)
                 else: # vertical
                     for i, node in enumerate(element.nodes):
                         x = content_x
@@ -416,12 +426,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             x, y, node_width, node_height
                         )
                         shape.text = node.label
-                        shape.fill.solid()
-                        shape.fill.fore_color.rgb = theme.color_accent
-                        shape.line.color.rgb = theme.color_accent
-                        for p in shape.text_frame.paragraphs:
-                            p.font.name = theme.font_name
-                            p.font.size = theme.size_body_small
+                        style_flow_node(shape)
                         node_positions[f"{node.id}_out"] = (x + node_width / 2, y + node_height)
                         node_positions[f"{node.id}_in"] = (x + node_width / 2, y)
                 
@@ -439,10 +444,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                                 arrow_height = max(fy - ty, Inches(0.1))
                                 shape_type = MSO_SHAPE.UP_ARROW
                                 
-                            slide.shapes.add_shape(
+                            arrow = slide.shapes.add_shape(
                                 shape_type,
                                 fx - Inches(0.1), arrow_y, Inches(0.2), arrow_height
                             )
+                            style_flow_arrow(arrow)
 
                 current_y += Inches(3)
 

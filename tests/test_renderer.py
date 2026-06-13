@@ -2,6 +2,7 @@ import pytest
 from pathlib import Path
 from PIL import Image as PILImage
 from pptx import Presentation
+from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE_TYPE, MSO_SHAPE
 from pptx.util import Inches
 from deck2pptx.adapters import load_deck
@@ -133,12 +134,21 @@ def run_pptx_readback(tmp_path, sample_path):
     auto_shapes = [shape for shape in flow_slide.shapes if shape.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE]
     rectangles = [shape for shape in auto_shapes if shape.auto_shape_type == MSO_SHAPE.RECTANGLE]
     assert len(rectangles) == 3
+    assert rectangles[0].fill.fore_color.rgb == RGBColor(0xE8, 0xF2, 0xFF)
+    assert rectangles[0].line.color.rgb == RGBColor(0x1F, 0x5F, 0x99)
+    arrows = [shape for shape in auto_shapes if shape.auto_shape_type == MSO_SHAPE.RIGHT_ARROW]
+    assert len(arrows) == 2
+    assert arrows[0].fill.fore_color.rgb == RGBColor(0x1F, 0x5F, 0x99)
     
     # Check vertical flow
     vflow_slide = prs.slides[4]
     auto_shapes_v = [shape for shape in vflow_slide.shapes if shape.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE]
     rectangles_v = [shape for shape in auto_shapes_v if shape.auto_shape_type == MSO_SHAPE.RECTANGLE]
     assert len(rectangles_v) == 3
+    assert rectangles_v[0].fill.fore_color.rgb == RGBColor(0xE8, 0xF2, 0xFF)
+    arrows_v = [shape for shape in auto_shapes_v if shape.auto_shape_type == MSO_SHAPE.DOWN_ARROW]
+    assert len(arrows_v) == 2
+    assert arrows_v[0].fill.fore_color.rgb == RGBColor(0x1F, 0x5F, 0x99)
 
 def test_pptx_readback_yaml(tmp_path):
     run_pptx_readback(tmp_path, write_sample_deck(tmp_path, ".yaml"))
