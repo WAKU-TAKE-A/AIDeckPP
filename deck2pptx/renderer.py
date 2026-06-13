@@ -238,7 +238,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             p = tb.text_frame.paragraphs[0]
                             p.text = element.caption
                             p.font.name = theme.font_name
-                            p.font.size = Pt(10)
+                            p.font.size = Pt(12)
                             p.alignment = PP_ALIGN.CENTER
                             p.font.color.rgb = theme.color_text_light
                     else:
@@ -266,7 +266,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             p = tb.text_frame.paragraphs[0]
                             p.text = element.caption
                             p.font.name = theme.font_name
-                            p.font.size = Pt(10)
+                            p.font.size = Pt(12)
                             p.alignment = PP_ALIGN.CENTER
                             p.font.color.rgb = theme.color_text_light
                             
@@ -355,7 +355,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             p = tb.text_frame.paragraphs[0]
                             p.text = img.caption
                             p.font.name = theme.font_name
-                            p.font.size = Pt(10)
+                            p.font.size = Pt(12)
                             p.alignment = PP_ALIGN.CENTER
                             p.font.color.rgb = theme.color_text_light
                     except Exception as e:
