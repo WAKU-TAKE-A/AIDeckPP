@@ -144,6 +144,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify_release.ps1
 - Do not modify project code unless asked.
 - Do not add `x`, `y`, `width`, or `height` fields to Deck input.
 - Do not make the renderer parse YAML or Markdown directly.
-- Do not invent unsupported elements without updating the Deck model, adapters, validation, renderer, spec, examples, and tests together.
+- Do not invent unsupported elements without updating the Deck model, adapters, validation, renderer, spec, docs, and tests together.
 - Do not ignore validation errors.
 - Do not claim a PPTX is ready until validation and build have both succeeded.

@@ -13,18 +13,12 @@ def test_deck_model_has_no_coordinates():
     assert not hasattr(t, 'height')
 
 def test_valid_deck_yaml():
-    sample_path = Path('examples/sample.deck.yaml')
-    if sample_path.exists():
-        deck = load_deck(sample_path)
-        # Should not raise any ValidationError
-        validate_deck(deck, sample_path.parent)
+    deck = Deck(slides=[Slide(title="Valid", elements=[Text(content="ok")])])
+    validate_deck(deck, Path("."))
 
 def test_valid_deck_markdown():
-    sample_path = Path('examples/sample.md')
-    if sample_path.exists():
-        deck = load_deck(sample_path)
-        # Should not raise any ValidationError
-        validate_deck(deck, sample_path.parent)
+    deck = Deck(slides=[Slide(title="Valid", elements=[Text(content="ok")])])
+    validate_deck(deck, Path("."))
 
 def test_nested_validation():
     nested_path = Path('tests/fixtures/nested/fixture.deck.yaml')

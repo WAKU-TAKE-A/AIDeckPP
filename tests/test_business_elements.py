@@ -144,7 +144,63 @@ Root
     assert tree.root.children[0].children[0].label == "Grandchild"
 
 def test_business_element_examples_build(tmp_path):
-    for sample in [Path("examples/sample_advanced.md"), Path("examples/sample_advanced.deck.yaml")]:
+    md_sample = tmp_path / "sample_advanced.md"
+    md_sample.write_text(
+        """# Advanced
+
+```comparison
+Left:
+- a
+Right:
+- b
+```
+
+```timeline
+2026: Phase 1 - Desc
+```
+
+```code python
+print("hello")
+```
+
+```tree
+Root
+  Child
+```
+""",
+        encoding="utf-8",
+    )
+    yaml_sample = tmp_path / "sample_advanced.deck.yaml"
+    yaml_sample.write_text(
+        """
+title: Advanced
+slides:
+  - title: Advanced
+    elements:
+      - comparison:
+          columns:
+            - label: Left
+              items: [a]
+            - label: Right
+              items: [b]
+      - timeline:
+          events:
+            - label: "2026"
+              title: "Phase 1"
+              description: "Desc"
+      - code_block:
+          code: print("hello")
+          language: python
+      - tree:
+          root:
+            label: Root
+            children:
+              - label: Child
+""",
+        encoding="utf-8",
+    )
+
+    for sample in [md_sample, yaml_sample]:
         deck = load_deck(sample)
         output = tmp_path / f"{sample.stem}.pptx"
         render_deck(deck, str(output), base_dir=sample.parent)

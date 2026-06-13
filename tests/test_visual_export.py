@@ -26,7 +26,22 @@ def test_visual_export_pdf():
     from deck2pptx.__main__ import build_cmd
     from argparse import Namespace
     
-    base_dir = Path("examples")
+    base_dir = Path("outputs") / "visual_export_samples"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    (base_dir / "sample.deck.yaml").write_text(
+        """
+title: Visual Export Sample
+slides:
+  - title: Visual Export Sample
+    elements:
+      - text: This deck verifies YAML export.
+""",
+        encoding="utf-8",
+    )
+    (base_dir / "sample.md").write_text(
+        "# Visual Export Sample\n\nThis deck verifies Markdown export.\n",
+        encoding="utf-8",
+    )
     out_dir = Path("outputs")
     out_dir.mkdir(exist_ok=True)
     

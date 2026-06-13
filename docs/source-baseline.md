@@ -8,7 +8,6 @@ The following paths are considered core source code or necessary operational fil
 
 - `deck2pptx/` (Core library source)
 - `tests/` (Test suite)
-- `examples/` (Sample inputs and assets)
 - `docs/` (Documentation)
 - `scripts/` (Operational scripts and verification tools)
 - `LICENSE`
@@ -26,6 +25,7 @@ The following paths represent generated outputs, cached data, or local environme
 - `.pytest_cache/`
 - `deck2pptx.egg-info/`, `dist/`, `build/`
 - `outputs/` (Generated PPTX and PDF files)
+- `examples/` (Local sample inputs and assets)
 
 ## Operational / Reference
 

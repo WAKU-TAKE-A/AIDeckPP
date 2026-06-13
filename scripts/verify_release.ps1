@@ -10,6 +10,37 @@ function Assert-Success {
     }
 }
 
+if (!(Test-Path outputs)) {
+    New-Item -ItemType Directory -Path outputs | Out-Null
+}
+
+$sampleYaml = "outputs\release_sample.deck.yaml"
+$sampleMd = "outputs\release_sample.md"
+
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+$yamlContent = @"
+title: Release Sample
+slides:
+  - title: Release Sample
+    elements:
+      - text: This deck verifies YAML input.
+      - bullet_list:
+          - First point
+          - Second point
+"@
+[System.IO.File]::WriteAllText($sampleYaml, $yamlContent, $utf8NoBom)
+
+$mdContent = @"
+# Release Sample
+
+This deck verifies Markdown input.
+
+- First point
+- Second point
+"@
+[System.IO.File]::WriteAllText($sampleMd, $mdContent, $utf8NoBom)
+
 # 1. Test from existing venv
 Write-Host "`n--- Running Pytest ---"
 & .\.venv\Scripts\python.exe -m pytest
@@ -20,19 +51,19 @@ Write-Host "`n--- Verifying AI Authoring Quality Gate Commands ---"
 Assert-Success "explain-spec"
 & .\.venv\Scripts\python.exe -m deck2pptx explain-spec --format json
 Assert-Success "explain-spec json"
-& .\.venv\Scripts\python.exe -m deck2pptx inspect examples\sample.deck.yaml --format json
+& .\.venv\Scripts\python.exe -m deck2pptx inspect $sampleYaml --format json
 Assert-Success "inspect yaml"
-& .\.venv\Scripts\python.exe -m deck2pptx inspect examples\sample.md --format json
+& .\.venv\Scripts\python.exe -m deck2pptx inspect $sampleMd --format json
 Assert-Success "inspect md"
-& .\.venv\Scripts\python.exe -m deck2pptx validate examples\sample.deck.yaml --format json
+& .\.venv\Scripts\python.exe -m deck2pptx validate $sampleYaml --format json
 Assert-Success "validate yaml"
-& .\.venv\Scripts\python.exe -m deck2pptx validate examples\sample.md --format json
+& .\.venv\Scripts\python.exe -m deck2pptx validate $sampleMd --format json
 Assert-Success "validate md"
 
 Write-Host "`n--- Verifying Build ---"
-& .\.venv\Scripts\python.exe -m deck2pptx build examples\sample.deck.yaml outputs\sample.pptx
+& .\.venv\Scripts\python.exe -m deck2pptx build $sampleYaml outputs\sample.pptx
 Assert-Success "build yaml"
-& .\.venv\Scripts\python.exe -m deck2pptx build examples\sample.md outputs\sample-md.pptx
+& .\.venv\Scripts\python.exe -m deck2pptx build $sampleMd outputs\sample-md.pptx
 Assert-Success "build md"
 
 Write-Host "`n--- Verifying Negative Validation ---"
@@ -107,9 +138,9 @@ python -m venv .venv-release
 Assert-Success "pip upgrade"
 & .\.venv-release\Scripts\python.exe -m pip install -e . pytest
 Assert-Success "pip install deck2pptx"
-& .\.venv-release\Scripts\deck2pptx validate examples\sample.md --format json
+& .\.venv-release\Scripts\deck2pptx validate $sampleMd --format json
 Assert-Success "smoke validate"
-& .\.venv-release\Scripts\deck2pptx build examples\sample.md outputs\sample-md-release.pptx
+& .\.venv-release\Scripts\deck2pptx build $sampleMd outputs\sample-md-release.pptx
 Assert-Success "smoke build"
 
 if (Test-Path .venv-release) {
