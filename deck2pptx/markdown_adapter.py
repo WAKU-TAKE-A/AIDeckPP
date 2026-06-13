@@ -276,19 +276,21 @@ def load_markdown(file_path: str | Path) -> Deck:
                 continue
                 
             # Image
-            img_match = re.match(r'^!\[.*?\]\((.*?)\)$', line)
+            img_match = re.match(r'^!\[(.*?)\]\((.*?)\)$', line)
             if img_match:
                 commit_text()
-                img_src = img_match.group(1)
+                img_alt = img_match.group(1).strip()
+                img_src = img_match.group(2).strip()
+                caption = img_alt if img_alt else None
                 
                 # Check if last element is Gallery with same placeholder, and append. If Image, convert to Gallery.
                 if slide.elements and isinstance(slide.elements[-1], Gallery) and slide.elements[-1].placeholder == current_placeholder:
-                    slide.elements[-1].images.append(Image(source=img_src, placeholder=current_placeholder))
+                    slide.elements[-1].images.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
                 elif slide.elements and isinstance(slide.elements[-1], Image) and slide.elements[-1].placeholder == current_placeholder:
                     prev_img = slide.elements.pop()
-                    slide.elements.append(Gallery(images=[prev_img, Image(source=img_src, placeholder=current_placeholder)], placeholder=current_placeholder))
+                    slide.elements.append(Gallery(images=[prev_img, Image(source=img_src, caption=caption, placeholder=current_placeholder)], placeholder=current_placeholder))
                 else:
-                    slide.elements.append(Image(source=img_src, placeholder=current_placeholder))
+                    slide.elements.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
                 i += 1
                 continue
                 

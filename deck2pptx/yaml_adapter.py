@@ -41,7 +41,11 @@ def load_yaml(file_path: str | Path) -> Deck:
                         parsed_items.append(str(item))
                 slide.elements.append(BulletList(items=parsed_items, placeholder=placeholder))
             elif 'image' in elem_data:
-                slide.elements.append(Image(source=elem_data['image'], placeholder=placeholder))
+                img_data = elem_data['image']
+                if isinstance(img_data, dict):
+                    slide.elements.append(Image(source=img_data.get('source', ''), caption=img_data.get('caption'), placeholder=placeholder))
+                else:
+                    slide.elements.append(Image(source=str(img_data), placeholder=placeholder))
             elif 'table' in elem_data:
                 table_data = elem_data['table']
                 slide.elements.append(Table(
@@ -51,8 +55,18 @@ def load_yaml(file_path: str | Path) -> Deck:
                 ))
             elif 'gallery' in elem_data:
                 gallery_data = elem_data['gallery']
-                images = [Image(source=img) for img in gallery_data.get('images', [])]
-                slide.elements.append(Gallery(images=images, placeholder=placeholder))
+                images = []
+                for img in gallery_data.get('images', []):
+                    if isinstance(img, dict):
+                        images.append(Image(source=img.get('source', ''), caption=img.get('caption')))
+                    else:
+                        images.append(Image(source=str(img)))
+                slide.elements.append(Gallery(
+                    images=images,
+                    rows=gallery_data.get('rows'),
+                    columns=gallery_data.get('columns'),
+                    placeholder=placeholder
+                ))
             elif 'flow' in elem_data:
                 flow_data = elem_data['flow']
                 nodes = [FlowNode(id=n['id'], label=n['label']) for n in flow_data.get('nodes', [])]

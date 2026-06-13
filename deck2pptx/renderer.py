@@ -232,13 +232,45 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 img_path = base_dir / element.source
                 try:
                     if ph and hasattr(ph, 'insert_picture'):
-                        ph.insert_picture(str(img_path))
+                        pic = ph.insert_picture(str(img_path))
+                        if element.caption:
+                            tb = slide.shapes.add_textbox(pic.left, pic.top + pic.height, pic.width, Inches(0.3))
+                            p = tb.text_frame.paragraphs[0]
+                            p.text = element.caption
+                            p.font.name = theme.font_name
+                            p.font.size = Pt(10)
+                            p.alignment = PP_ALIGN.CENTER
+                            p.font.color.rgb = theme.color_text_light
                     else:
                         target_x = ph.left if ph else content_x
                         target_y = ph.top if ph else current_y
-                        target_w = ph.width if ph else (Inches(4) if Inches(4) < layout.content_width else layout.content_width)
-                        slide.shapes.add_picture(str(img_path), target_x, target_y, width=target_w)
-                        if not ph: current_y += Inches(3)
+                        max_w = ph.width if ph else layout.content_width
+                        max_h = ph.height if ph else layout.content_height
+                        if element.caption:
+                            max_h -= Inches(0.3)
+                            
+                        from PIL import Image as PILImage
+                        try:
+                            with PILImage.open(str(img_path)) as pil_img:
+                                w, h = pil_img.size
+                            ratio = min(max_w / w, max_h / h)
+                            new_w = w * ratio
+                            new_h = h * ratio
+                        except:
+                            new_w = max_w
+                            new_h = None
+                            
+                        pic = slide.shapes.add_picture(str(img_path), target_x, target_y, width=new_w, height=new_h)
+                        if element.caption:
+                            tb = slide.shapes.add_textbox(target_x, target_y + (new_h if new_h else pic.height), new_w, Inches(0.3))
+                            p = tb.text_frame.paragraphs[0]
+                            p.text = element.caption
+                            p.font.name = theme.font_name
+                            p.font.size = Pt(10)
+                            p.alignment = PP_ALIGN.CENTER
+                            p.font.color.rgb = theme.color_text_light
+                            
+                        if not ph: current_y += (new_h if new_h else pic.height) + (Inches(0.4) if element.caption else Inches(0.1))
                 except Exception as e:
                     print(f"Failed to load image {img_path}: {e}")
                     
@@ -268,37 +300,68 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             p.font.size = Pt(deck.font_size_l1) if deck.font_size_l1 else theme.size_body_small
                         
                 if not ph: current_y += Inches(2)
-                
+                    
             elif isinstance(element, Gallery):
                 num_images = len(element.images)
                 if num_images == 0:
                     continue
-                elif num_images == 1:
-                    cols, rows_ct = 1, 1
-                elif num_images == 2:
-                    cols, rows_ct = 2, 1
-                elif num_images == 3:
-                    cols, rows_ct = 3, 1
-                elif num_images == 4:
-                    cols, rows_ct = 2, 2
-                else:
-                    cols, rows_ct = 3, 2
                     
-                img_width = layout.content_width / cols
-                img_height = layout.content_height / rows_ct
+                cols = getattr(element, 'columns', None)
+                rows_ct = getattr(element, 'rows', None)
+                
+                if cols is None and rows_ct is None:
+                    if num_images == 1: cols, rows_ct = 1, 1
+                    elif num_images == 2: cols, rows_ct = 2, 1
+                    elif num_images == 3: cols, rows_ct = 3, 1
+                    elif num_images == 4: cols, rows_ct = 2, 2
+                    else: cols, rows_ct = 3, 2
+                elif cols is None:
+                    import math
+                    cols = math.ceil(num_images / rows_ct)
+                elif rows_ct is None:
+                    import math
+                    rows_ct = math.ceil(num_images / cols)
+                    
+                cell_width = (ph.width if ph else layout.content_width) / cols
+                cell_height = (ph.height if ph else layout.content_height) / rows_ct
                 
                 for i, img in enumerate(element.images[:cols*rows_ct]):
                     r = i // cols
                     c = i % cols
-                    x = content_x + (c * img_width)
-                    y = current_y + (r * img_height)
+                    x = (ph.left if ph else content_x) + (c * cell_width)
+                    y = (ph.top if ph else current_y) + (r * cell_height)
+                    
+                    max_w = cell_width - Inches(0.1)
+                    max_h = cell_height - Inches(0.1)
+                    if img.caption:
+                        max_h -= Inches(0.3)
+                        
                     img_path = base_dir / img.source
                     try:
-                        slide.shapes.add_picture(str(img_path), x, y, width=img_width)
+                        from PIL import Image as PILImage
+                        with PILImage.open(str(img_path)) as pil_img:
+                            w, h = pil_img.size
+                        ratio = min(max_w / w, max_h / h)
+                        new_w = w * ratio
+                        new_h = h * ratio
+                        
+                        center_x = x + (cell_width - new_w) / 2
+                        center_y = y + (cell_height - new_h - (Inches(0.3) if img.caption else 0)) / 2
+                        
+                        slide.shapes.add_picture(str(img_path), center_x, center_y, width=new_w, height=new_h)
+                        
+                        if img.caption:
+                            tb = slide.shapes.add_textbox(x, center_y + new_h, cell_width, Inches(0.3))
+                            p = tb.text_frame.paragraphs[0]
+                            p.text = img.caption
+                            p.font.name = theme.font_name
+                            p.font.size = Pt(10)
+                            p.alignment = PP_ALIGN.CENTER
+                            p.font.color.rgb = theme.color_text_light
                     except Exception as e:
                         print(f"Failed to load image {img_path}: {e}")
                 
-                current_y += Inches(4.5)
+                if not ph: current_y += (cell_height * rows_ct)
                 
             elif isinstance(element, Flow):
                 node_width = Inches(1.5)

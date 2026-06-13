@@ -19,6 +19,7 @@ class BulletList:
 @dataclass
 class Image:
     source: str
+    caption: Optional[str] = None
     placeholder: Optional[str] = None
 
 @dataclass
@@ -30,6 +31,8 @@ class Table:
 @dataclass
 class Gallery:
     images: List[Image]
+    rows: Optional[int] = None
+    columns: Optional[int] = None
     placeholder: Optional[str] = None
 
 @dataclass

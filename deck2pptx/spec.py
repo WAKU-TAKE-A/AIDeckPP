@@ -25,9 +25,16 @@ def get_spec() -> dict:
             "description": "All elements support an optional `placeholder` field (string) to target PPTX placeholders.",
             "text": "A simple text block (Markdown normal paragraph).",
             "bullet_list": "A list of strings (Markdown `-` or `*` list).",
-            "image": "A relative path to an image file (Markdown `![alt](path)`).",
+            "image": "A relative path to an image file, or an object with `source` and `caption` (Markdown `![alt](path)` uses `alt` as caption).",
             "table": "An object with `headers` and `rows` (Markdown tables with `|`).",
-            "gallery": "An object with `images` (Markdown consecutive images).",
+            "gallery": {
+                "description": "A grid of images (Markdown consecutive images).",
+                "fields": {
+                    "images": "List of image objects or path strings.",
+                    "rows": "Optional explicit row count (integer).",
+                    "columns": "Optional explicit column count (integer)."
+                }
+            },
             "flow": {
                 "description": "A flowchart.",
                 "fields": {
@@ -68,6 +75,7 @@ def get_spec() -> dict:
         "validation_rules": [
             "Deck orientation must be 'landscape' or 'portrait'.",
             "Image paths and gallery image paths must exist relative to the input file.",
+            "Gallery rows and columns must be positive integers.",
             "Flow direction must be supported.",
             "Flow edges must reference known node IDs.",
             "Comparison must have at least 2 columns.",

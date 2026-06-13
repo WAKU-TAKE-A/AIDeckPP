@@ -33,6 +33,26 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                     })
                     
             elif isinstance(element, Gallery):
+                if element.rows is not None and (not isinstance(element.rows, int) or element.rows <= 0):
+                    errors.append({
+                        "code": "invalid_gallery_rows",
+                        "message": f"Slide {slide_idx+1}: Gallery rows must be a positive integer.",
+                        "slide_index": slide_idx,
+                        "slide_title": slide.title,
+                        "element_index": elem_idx,
+                        "element_type": "Gallery",
+                        "field": "rows"
+                    })
+                if element.columns is not None and (not isinstance(element.columns, int) or element.columns <= 0):
+                    errors.append({
+                        "code": "invalid_gallery_columns",
+                        "message": f"Slide {slide_idx+1}: Gallery columns must be a positive integer.",
+                        "slide_index": slide_idx,
+                        "slide_title": slide.title,
+                        "element_index": elem_idx,
+                        "element_type": "Gallery",
+                        "field": "columns"
+                    })
                 for img_idx, img in enumerate(element.images):
                     img_path = base_dir / img.source
                     if not img_path.is_file():

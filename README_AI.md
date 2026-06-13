@@ -20,8 +20,8 @@ The `Deck` model is canonical.
   - `Text`: plain paragraphs
   - `BulletList`: generated from `-` or `*`
   - `Table`: standard Markdown tables
-  - `Image`: `![alt](path)` (automatically becomes a Gallery if multiple are consecutive)
-  - `Gallery`: automatic layout of multiple images
+  - `Image`: `![alt](path)` (automatically preserves alt text as a caption; becomes a Gallery if multiple are consecutive)
+  - `Gallery`: automatic grid layout of multiple images. If the user wants explicit layouts (e.g., exactly 2x2 or 3x1), prefer YAML input over inventing Markdown dialects.
   - `Flow`: simple flowchart (` ```flow `)
   - `Comparison`: ` ```comparison ` block with columns labeled by `Label:` and `- item` lists
   - `Timeline`: ` ```timeline ` block with `Date: Title - Description`
@@ -111,6 +111,7 @@ You can author presentations targeting a specific user PPTX template. Follow thi
 ## Input Guidance
 
 Prefer Markdown when the user wants a simple text-first deck. Use YAML for complex structures.
+Concierge-layer guidance: If the user provides custom or ad-hoc Markdown formatting rules for a deck, briefly explain how their format maps to the supported elements, and automatically convert their intent to valid Markdown/YAML. Do not ask the user to rewrite their input first.
 
 ### Document Structure & Typography
 You can control the overall deck typography and structure using YAML front matter (or Markdown `---` block):
