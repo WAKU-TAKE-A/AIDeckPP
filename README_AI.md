@@ -64,7 +64,7 @@ You can author presentations targeting a specific user PPTX template. Follow thi
    This reveals the exact layout names and placeholder names available.
 
 2. **Author the Input (Markdown/YAML)**
-   Use the exact layout and placeholder names discovered, or a stable prefix of those names. Matching is case-insensitive, so `title&body` can target `Title&BodyLayout`, and `sub` can target `Subtitle 2`. Do NOT guess aliases like `subtitle -> SubTitle` or fix typos like `SubTitile` unless explicitly requested.
+   Use the exact layout and placeholder names discovered, or a stable prefix of those names. Matching is case-insensitive, so `title&body` can target `Title&BodyLayout`, and `sub` can target `Subtitle 2`. Do NOT guess aliases like `subtitle -> SubTitle` or fix typos like `SubTitile` unless explicitly requested. In Markdown, `#`, `##`, and `###` start new slides; `####` and deeper headings stay in the slide body.
    ```markdown
    <!-- layout="TitleLayout" -->
    # My Presentation

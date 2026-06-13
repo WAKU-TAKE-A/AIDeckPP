@@ -88,6 +88,32 @@ Just some text without heading.
     finally:
         Path(tmp_name).unlink()
 
+def test_markdown_h1_h2_h3_are_slide_boundaries_but_h4_is_body_text():
+    md_content = """
+# Title
+
+## Chapter
+
+### Section
+#### Body heading
+Body text
+"""
+    import tempfile
+    
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=".md", encoding='utf-8') as f:
+        f.write(md_content)
+        tmp_name = f.name
+        
+    try:
+        deck = load_markdown(tmp_name)
+        assert len(deck.slides) == 3
+        assert [slide.title for slide in deck.slides] == ["Title", "Chapter", "Section"]
+        assert len(deck.slides[2].elements) == 1
+        assert isinstance(deck.slides[2].elements[0], Text)
+        assert deck.slides[2].elements[0].content == "#### Body heading Body text"
+    finally:
+        Path(tmp_name).unlink()
+
 def test_build_with_template(tmp_path):
     # Generate a dummy template
     template_path = tmp_path / "dummy_template.pptx"

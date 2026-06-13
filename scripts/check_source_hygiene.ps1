@@ -3,7 +3,6 @@ $ErrorActionPreference = "Stop"
 $expected_source = @(
     "deck2pptx/",
     "tests/",
-    "examples/",
     "docs/",
     "scripts/",
     "LICENSE",
@@ -29,6 +28,7 @@ $expected_generated = @(
 $operational_reference = @(
     "_sample/",
     "dual-model-operation-kit/",
+    "examples/",
     "Inputs/"
 )
 

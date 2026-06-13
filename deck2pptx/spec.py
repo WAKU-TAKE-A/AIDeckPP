@@ -71,7 +71,7 @@ def get_spec() -> dict:
                 }
             }
         },
-        "markdown_notes": "In Markdown, use `<!-- layout=\"Name\" -->`, `<!-- new_page=\"Name\" -->`, `<!-- subtitle=\"Text\" -->`, and `<!-- place=\"Name\" -->` for structural controls.\nUse code blocks for business elements: ```comparison, ```timeline, ```code <lang>, ```tree.",
+        "markdown_notes": "In Markdown, `#`, `##`, and `###` headings start new slides. Use `<!-- layout=\"Name\" -->`, `<!-- new_page=\"Name\" -->`, `<!-- subtitle=\"Text\" -->`, and `<!-- place=\"Name\" -->` for structural controls.\nUse code blocks for business elements: ```comparison, ```timeline, ```code <lang>, ```tree.",
         "validation_rules": [
             "Deck orientation must be 'landscape' or 'portrait'.",
             "Image paths and gallery image paths must exist relative to the input file.",

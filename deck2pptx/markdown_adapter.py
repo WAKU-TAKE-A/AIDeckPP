@@ -54,7 +54,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             current_slide_lines = [""]
             continue
             
-        if line.startswith('# ') or line.startswith('## '):
+        if re.match(r'^(#{1,3})\s+', line):
             if current_slide_lines:
                 if all(not l.strip() for l in current_slide_lines):
                     current_slide_lines = [line]
