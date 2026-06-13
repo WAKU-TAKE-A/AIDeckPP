@@ -1,5 +1,8 @@
 import pytest
 from pathlib import Path
+from pptx import Presentation
+from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE, MSO_SHAPE_TYPE
 from deck2pptx.yaml_adapter import load_yaml
 from deck2pptx.markdown_adapter import load_markdown
 from deck2pptx.models import Comparison, Timeline, CodeBlock, Tree
@@ -205,3 +208,43 @@ slides:
         output = tmp_path / f"{sample.stem}.pptx"
         render_deck(deck, str(output), base_dir=sample.parent)
         assert output.exists()
+
+def test_timeline_uses_blue_monochrome_style(tmp_path):
+    content = """
+title: Timeline Style
+slides:
+  - title: Timeline
+    elements:
+      - timeline:
+          events:
+            - label: "2026"
+              title: "Phase 1"
+              description: "Desc"
+"""
+    sample = tmp_path / "timeline.deck.yaml"
+    sample.write_text(content, encoding="utf-8")
+    deck = load_deck(sample)
+    output = tmp_path / "timeline.pptx"
+
+    render_deck(deck, str(output), base_dir=sample.parent)
+
+    prs = Presentation(str(output))
+    slide = prs.slides[0]
+    label_shapes = [
+        shape for shape in slide.shapes
+        if getattr(shape, "has_text_frame", False) and shape.text == "2026"
+    ]
+    title_shapes = [
+        shape for shape in slide.shapes
+        if getattr(shape, "has_text_frame", False) and "Phase 1" in shape.text
+    ]
+    line_shapes = [
+        shape for shape in slide.shapes
+        if shape.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE
+        and shape.auto_shape_type == MSO_SHAPE.RECTANGLE
+        and shape.width < shape.height
+    ]
+
+    assert label_shapes[0].text_frame.paragraphs[0].font.color.rgb == RGBColor(0x1F, 0x5F, 0x99)
+    assert title_shapes[0].text_frame.paragraphs[0].font.color.rgb == RGBColor(0x0B, 0x2F, 0x4F)
+    assert line_shapes[0].fill.fore_color.rgb == RGBColor(0x1F, 0x5F, 0x99)

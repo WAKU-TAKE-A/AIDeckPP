@@ -508,10 +508,13 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     p.font.name = theme.font_name
                     p.font.size = theme.size_body
                     p.font.bold = True
-                    p.font.color.rgb = theme.color_accent
+                    p.font.color.rgb = theme.color_flow_line
                     
                     # Line
-                    slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, start_x + Inches(1.6), y + Inches(0.1), Inches(0.05), event_height - Inches(0.2)).fill.solid()
+                    line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, start_x + Inches(1.6), y + Inches(0.1), Inches(0.05), event_height - Inches(0.2))
+                    line.fill.solid()
+                    line.fill.fore_color.rgb = theme.color_flow_line
+                    line.line.color.rgb = theme.color_flow_line
                     
                     # Content
                     tb = slide.shapes.add_textbox(start_x + Inches(1.8), y, width - Inches(1.8), event_height)
@@ -521,6 +524,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     p.font.name = theme.font_name
                     p.font.size = theme.size_body
                     p.font.bold = True
+                    p.font.color.rgb = theme.color_flow_text
                     
                     if ev.description:
                         p2 = tf.add_paragraph()
