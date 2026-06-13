@@ -139,6 +139,84 @@ def test_build_with_template_does_not_copy_existing_template_slides(tmp_path):
     assert "Generated Slide" in texts
     assert "Starter slide should not be copied" not in texts
 
+def test_placeholder_lookup_accepts_powerpoint_number_suffix(tmp_path):
+    template_path = tmp_path / "numbered_placeholder_template.pptx"
+    prs = Presentation()
+    prs.save(str(template_path))
+
+    deck = Deck(title="Test", orientation="landscape", theme="default")
+    slide = Slide(title="Title", layout_hint="Title Slide")
+    slide.elements.append(Text(content="Subtitle by prefix", placeholder="Subtitle"))
+    deck.slides.append(slide)
+
+    output_path = tmp_path / "output.pptx"
+    render_deck(deck, str(output_path), base_dir=tmp_path, template_path=str(template_path))
+
+    out_prs = Presentation(str(output_path))
+    subtitle_shapes = [
+        shape
+        for shape in out_prs.slides[0].shapes
+        if getattr(shape, "has_text_frame", False)
+        and shape.name.casefold().startswith("subtitle")
+    ]
+
+    assert subtitle_shapes
+    assert subtitle_shapes[0].text == "Subtitle by prefix"
+
+def test_placeholder_lookup_uses_layout_placeholder_name_when_slide_name_changes(tmp_path):
+    template_path = tmp_path / "renamed_layout_placeholder_template.pptx"
+    prs = Presentation()
+    layout = prs.slide_layouts[1]
+    body_idx = None
+    for placeholder in layout.placeholders:
+        if placeholder.is_placeholder and placeholder.placeholder_format.type == 7:
+            placeholder.name = "Body"
+            body_idx = placeholder.placeholder_format.idx
+            break
+    assert body_idx is not None
+    prs.save(str(template_path))
+
+    deck = Deck(title="Test", orientation="landscape", theme="default")
+    slide = Slide(title="Title", layout_hint=layout.name)
+    slide.elements.append(Text(content="Body by layout name", placeholder="Body"))
+    deck.slides.append(slide)
+
+    output_path = tmp_path / "output.pptx"
+    render_deck(deck, str(output_path), base_dir=tmp_path, template_path=str(template_path))
+
+    out_prs = Presentation(str(output_path))
+    body_placeholder = out_prs.slides[0].placeholders[body_idx]
+
+    assert body_placeholder.text == "Body by layout name"
+
+def test_title_prefers_placeholder_named_title_over_title_type(tmp_path):
+    template_path = tmp_path / "custom_title_placeholder_template.pptx"
+    prs = Presentation()
+    layout = prs.slide_layouts[0]
+    named_title_idx = None
+    title_type_idx = None
+    for placeholder in layout.placeholders:
+        if placeholder.placeholder_format.type == 3:
+            placeholder.name = "ToCompany"
+            title_type_idx = placeholder.placeholder_format.idx
+        elif placeholder.placeholder_format.type == 4:
+            placeholder.name = "Title"
+            named_title_idx = placeholder.placeholder_format.idx
+    assert named_title_idx is not None
+    assert title_type_idx is not None
+    prs.save(str(template_path))
+
+    deck = Deck(title="Test", orientation="landscape", theme="default")
+    deck.slides.append(Slide(title="Generated Title", layout_hint=layout.name))
+
+    output_path = tmp_path / "output.pptx"
+    render_deck(deck, str(output_path), base_dir=tmp_path, template_path=str(template_path))
+
+    out_prs = Presentation(str(output_path))
+
+    assert out_prs.slides[0].placeholders[named_title_idx].text == "Generated Title"
+    assert out_prs.slides[0].placeholders[title_type_idx].text != "Generated Title"
+
 def test_toc_rendering(tmp_path):
     # Create a deck with toc=True
     deck = Deck(title="Test", orientation="landscape", theme="default", toc=True, toc_title="Agenda")

@@ -14,6 +14,14 @@ def _remove_existing_slides(prs):
         prs.part.drop_rel(slide_id.rId)
         slide_id_list.remove(slide_id)
 
+def _placeholder_name_matches(actual_name: str, requested_name: str) -> bool:
+    actual = actual_name.strip().casefold()
+    requested = requested_name.strip().casefold()
+    return actual == requested or actual.startswith(requested)
+
+def _placeholder_name_equals(actual_name: str, requested_name: str) -> bool:
+    return actual_name.strip().casefold() == requested_name.strip().casefold()
+
 def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), template_path: str = None):
     # Initialize Presentation
     if template_path:
@@ -88,18 +96,30 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
         def find_placeholder(name):
             if not name: return None
             for shape in slide.shapes:
-                if shape.name == name:
+                if _placeholder_name_equals(shape.name, name):
+                    return shape
+            matching_layout_idx = None
+            for layout_shape in slide.slide_layout.placeholders:
+                if _placeholder_name_matches(layout_shape.name, name):
+                    matching_layout_idx = layout_shape.placeholder_format.idx
+                    break
+            if matching_layout_idx is not None:
+                for shape in slide.placeholders:
+                    if shape.placeholder_format.idx == matching_layout_idx:
+                        return shape
+            for shape in slide.shapes:
+                if _placeholder_name_matches(shape.name, name):
                     return shape
             return None
 
         # Try to use default title/subtitle placeholders if no manual coords
-        title_ph = None
-        subtitle_ph = None
+        title_ph = find_placeholder("Title")
+        subtitle_ph = find_placeholder("Subtitle")
         for shape in slide.shapes:
             if shape.is_placeholder:
-                if shape.placeholder_format.type in (1, 3): # TITLE or CENTER_TITLE
+                if not title_ph and shape.placeholder_format.type in (1, 3): # TITLE or CENTER_TITLE
                     title_ph = shape
-                elif shape.placeholder_format.type == 4: # SUBTITLE
+                elif not subtitle_ph and shape.placeholder_format.type == 4: # SUBTITLE
                     subtitle_ph = shape
         
         if slide_model.title:
