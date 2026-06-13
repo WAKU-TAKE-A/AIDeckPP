@@ -7,10 +7,18 @@ from .models import Deck, Slide, Text, BulletList, Image, Table, Gallery, Flow
 from .layout import Layout, get_slide_layout_type
 from .theme import Theme
 
+def _remove_existing_slides(prs):
+    """Use a template for layouts/theme without carrying starter slides forward."""
+    slide_id_list = prs.slides._sldIdLst
+    for slide_id in list(slide_id_list):
+        prs.part.drop_rel(slide_id.rId)
+        slide_id_list.remove(slide_id)
+
 def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), template_path: str = None):
     # Initialize Presentation
     if template_path:
         prs = Presentation(template_path)
+        _remove_existing_slides(prs)
     else:
         prs = Presentation()
     

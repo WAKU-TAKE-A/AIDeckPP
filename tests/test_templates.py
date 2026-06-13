@@ -114,6 +114,31 @@ def test_build_with_template(tmp_path):
     assert len(out_prs.slides) == 1
     assert out_prs.slides[0].shapes.title.text == "Slide 1"
 
+def test_build_with_template_does_not_copy_existing_template_slides(tmp_path):
+    template_path = tmp_path / "template_with_starter_slide.pptx"
+    prs = Presentation()
+    starter = prs.slides.add_slide(prs.slide_layouts[0])
+    starter.shapes.title.text = "Starter slide should not be copied"
+    prs.save(str(template_path))
+
+    deck = Deck(title="Test", orientation="landscape", theme="default")
+    deck.slides.append(Slide(title="Generated Slide", layout_hint="Title Slide"))
+
+    output_path = tmp_path / "output.pptx"
+    render_deck(deck, str(output_path), base_dir=tmp_path, template_path=str(template_path))
+
+    out_prs = Presentation(str(output_path))
+    texts = [
+        shape.text
+        for slide in out_prs.slides
+        for shape in slide.shapes
+        if getattr(shape, "has_text_frame", False) and shape.text
+    ]
+
+    assert len(out_prs.slides) == 1
+    assert "Generated Slide" in texts
+    assert "Starter slide should not be copied" not in texts
+
 def test_toc_rendering(tmp_path):
     # Create a deck with toc=True
     deck = Deck(title="Test", orientation="landscape", theme="default", toc=True, toc_title="Agenda")
