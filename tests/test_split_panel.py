@@ -1,6 +1,5 @@
 import pytest
-from pathlib import Path
-from deck2pptx.models import Deck, Slide, Text, BulletList, Flow, FlowNode, FlowEdge, Split, Panel
+from deck2pptx.models import Deck, Slide, Text, BulletList, Split, Panel
 from deck2pptx.markdown_adapter import load_markdown
 from deck2pptx.yaml_adapter import load_yaml
 from deck2pptx.renderer import render_deck

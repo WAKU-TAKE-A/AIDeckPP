@@ -1,6 +1,5 @@
 from pptx.util import Inches
-from .models import Slide, Gallery, Flow, Text, BulletList, Image, Table
-from typing import Tuple
+from .models import Slide, Gallery, Flow, Image
 
 class Layout:
     def __init__(self, slide_width: int, slide_height: int):
