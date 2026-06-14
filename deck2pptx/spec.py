@@ -69,9 +69,16 @@ def get_spec() -> dict:
                 "fields": {
                     "root": "A node object with `label` and optional `children` (list of nodes)."
                 }
+            },
+            "split": {
+                "description": "A layout split into multiple panels.",
+                "fields": {
+                    "direction": "'horizontal' or 'vertical'.",
+                    "panels": "List of panel objects, each containing an optional `title` and a list of `elements`."
+                }
             }
         },
-        "markdown_notes": "In Markdown, `#`, `##`, and `###` headings start new slides. Use `<!-- layout=\"Name\" -->`, `<!-- new_page=\"Name\" -->`, `<!-- subtitle=\"Text\" -->`, and `<!-- place=\"Name\" -->` for structural controls.\nUse code blocks for business elements: ```comparison, ```timeline, ```code <lang>, ```tree.",
+        "markdown_notes": "In Markdown, `#`, `##`, and `###` headings start new slides. Use quoted-string control comments such as `<!-- layout \"Name\" -->`, `<!-- subtitle \"Text\" -->`, `<!-- placeholder \"Name\" -->`, and `<!-- newpage \"LayoutName\" -->`; short forms `l`, `sub`, `ph`, and `new` are also supported. Multiple commands can be separated with `;`.\nUse `<!-- split h -->` or `<!-- split direction=h -->`, `<!-- panel \"Title\" -->` or `<!-- panel title=\"Title\" -->`, and `<!-- /split -->` to create multi-panel layouts.\nUse code blocks for business elements: ```comparison, ```timeline, ```code <lang>, ```tree.",
         "validation_rules": [
             "Deck orientation must be 'landscape' or 'portrait'.",
             "Image paths and gallery image paths must exist relative to the input file.",
@@ -81,7 +88,11 @@ def get_spec() -> dict:
             "Comparison must have at least 2 columns.",
             "Timeline must have at least 1 event.",
             "CodeBlock must have code content.",
-            "Tree must have a root node."
+            "Tree must have a root node.",
+            "Split direction must be 'horizontal' or 'vertical'.",
+            "Split must have at least 1 panel.",
+            "A Split panel must have either a title or elements.",
+            "Nested Split elements are not supported."
         ],
         "non_goals": [
             "AsciiDoc adapter, Natural Language adapter.",

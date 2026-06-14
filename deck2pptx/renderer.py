@@ -157,7 +157,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
         # Simple rendering layout flow
         current_y = layout.content_y
         content_x = layout.content_x
-        for element in slide_model.elements:
+        def render_element(element, content_x, current_y, layout_content_width, layout_content_height, ph=None):
             ph = find_placeholder(getattr(element, 'placeholder', None))
             
             if isinstance(element, Text):
@@ -166,7 +166,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 else:
                     target_x = ph.left if ph else content_x
                     target_y = ph.top if ph else current_y
-                    target_w = ph.width if ph else layout.content_width
+                    target_w = ph.width if ph else layout_content_width
                     txBox = slide.shapes.add_textbox(target_x, target_y, target_w, Inches(1))
                     tf = txBox.text_frame
                     tf.word_wrap = True
@@ -203,7 +203,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 else:
                     target_x = ph.left if ph else content_x
                     target_y = ph.top if ph else current_y
-                    target_w = ph.width if ph else layout.content_width
+                    target_w = ph.width if ph else layout_content_width
                     txBox = slide.shapes.add_textbox(target_x, target_y, target_w, Inches(2))
                     tf = txBox.text_frame
                     tf.word_wrap = True
@@ -244,8 +244,8 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     else:
                         target_x = ph.left if ph else content_x
                         target_y = ph.top if ph else current_y
-                        max_w = ph.width if ph else layout.content_width
-                        max_h = ph.height if ph else layout.content_height
+                        max_w = ph.width if ph else layout_content_width
+                        max_h = ph.height if ph else layout_content_height
                         if element.caption:
                             max_h -= Inches(0.3)
                             
@@ -280,7 +280,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 
                 target_x = ph.left if ph else content_x
                 target_y = ph.top if ph else current_y
-                target_w = ph.width if ph else layout.content_width
+                target_w = ph.width if ph else layout_content_width
                 
                 table_shape = slide.shapes.add_table(rows, cols, target_x, target_y, target_w, Inches(1))
                 table = table_shape.table
@@ -304,7 +304,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             elif isinstance(element, Gallery):
                 num_images = len(element.images)
                 if num_images == 0:
-                    continue
+                    return current_y
                     
                 cols = getattr(element, 'columns', None)
                 rows_ct = getattr(element, 'rows', None)
@@ -322,8 +322,8 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     import math
                     rows_ct = math.ceil(num_images / cols)
                     
-                cell_width = (ph.width if ph else layout.content_width) / cols
-                cell_height = (ph.height if ph else layout.content_height) / rows_ct
+                cell_width = (ph.width if ph else layout_content_width) / cols
+                cell_height = (ph.height if ph else layout_content_height) / rows_ct
                 
                 for i, img in enumerate(element.images[:cols*rows_ct]):
                     r = i // cols
@@ -455,7 +455,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             elif type(element).__name__ == 'Comparison':
                 num_cols = len(element.columns)
                 if num_cols > 0:
-                    col_width = (ph.width if ph else layout.content_width) / num_cols
+                    col_width = (ph.width if ph else layout_content_width) / num_cols
                     start_x = ph.left if ph else content_x
                     start_y = ph.top if ph else current_y
                     
@@ -495,7 +495,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             elif type(element).__name__ == 'Timeline':
                 start_x = ph.left if ph else content_x
                 start_y = ph.top if ph else current_y
-                width = ph.width if ph else layout.content_width
+                width = ph.width if ph else layout_content_width
                 
                 event_height = Inches(0.8)
                 for i, ev in enumerate(element.events):
@@ -538,7 +538,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             elif type(element).__name__ == 'CodeBlock':
                 start_x = ph.left if ph else content_x
                 start_y = ph.top if ph else current_y
-                width = ph.width if ph else layout.content_width
+                width = ph.width if ph else layout_content_width
                 
                 if element.caption or element.language:
                     tb = slide.shapes.add_textbox(start_x, start_y, width, Inches(0.4))
@@ -567,7 +567,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             elif type(element).__name__ == 'Tree':
                 start_x = ph.left if ph else content_x
                 start_y = ph.top if ph else current_y
-                width = ph.width if ph else layout.content_width
+                width = ph.width if ph else layout_content_width
                 
                 tb = slide.shapes.add_textbox(start_x, start_y, width, Inches(2))
                 tf = tb.text_frame
@@ -590,6 +590,73 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                         
                 render_tree_node(element.root, 0)
                 if not ph: current_y += Inches(2.5)
+
+
+            elif type(element).__name__ == 'Split':
+                num_panels = len(element.panels)
+                if num_panels == 0:
+                    return current_y
+                target_x = ph.left if ph else content_x
+                target_y = ph.top if ph else current_y
+                target_w = ph.width if ph else layout_content_width
+                target_h = ph.height if ph else layout_content_height
+                gap = Inches(0.2)
+                if element.direction == 'horizontal':
+                    panel_w = (target_w - (gap * (num_panels - 1))) / num_panels
+                    max_bottom = target_y
+                    for i, panel in enumerate(element.panels):
+                        px = target_x + i * (panel_w + gap)
+                        py = target_y
+                        if panel.title:
+                            tb = slide.shapes.add_textbox(px, py, panel_w, Inches(0.4))
+                            p = tb.text_frame.paragraphs[0]
+                            p.text = panel.title
+                            p.font.name = theme.font_name
+                            p.font.size = theme.size_body
+                            p.font.bold = True
+                            p.font.color.rgb = theme.color_primary
+                            py += Inches(0.5)
+                        end_y = py
+                        for pe in panel.elements:
+                            pe_ph = find_placeholder(getattr(pe, 'placeholder', None))
+                            if pe_ph:
+                                render_element(pe, pe_ph.left, pe_ph.top, pe_ph.width, pe_ph.height, pe_ph)
+                            else:
+                                end_y = render_element(pe, px, end_y, panel_w, target_h - (py - target_y), None)
+                        if end_y > max_bottom:
+                            max_bottom = end_y
+                    if not ph: current_y = max_bottom + Inches(0.2)
+                else:
+                    panel_w = target_w
+                    panel_h = (target_h - (gap * (num_panels - 1))) / num_panels
+                    py = target_y
+                    for i, panel in enumerate(element.panels):
+                        px = target_x
+                        panel_start_y = py
+                        if panel.title:
+                            tb = slide.shapes.add_textbox(px, py, panel_w, Inches(0.4))
+                            p = tb.text_frame.paragraphs[0]
+                            p.text = panel.title
+                            p.font.name = theme.font_name
+                            p.font.size = theme.size_body
+                            p.font.bold = True
+                            p.font.color.rgb = theme.color_primary
+                            py += Inches(0.5)
+                        for pe in panel.elements:
+                            pe_ph = find_placeholder(getattr(pe, 'placeholder', None))
+                            if pe_ph:
+                                render_element(pe, pe_ph.left, pe_ph.top, pe_ph.width, pe_ph.height, pe_ph)
+                            else:
+                                py = render_element(pe, px, py, panel_w, panel_h - (py - panel_start_y), None)
+                        py = panel_start_y + panel_h + gap
+                    if not ph: current_y = py
+            return current_y
+
+        current_y = layout.content_y
+        content_x = layout.content_x
+        for element in slide_model.elements:
+            ph = find_placeholder(getattr(element, "placeholder", None))
+            current_y = render_element(element, content_x, current_y, layout.content_width, layout.content_height, ph)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

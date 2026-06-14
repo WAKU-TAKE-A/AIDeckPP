@@ -18,7 +18,8 @@ def validate_deck(deck: Deck, base_dir: str | Path):
         
     base_dir = Path(base_dir)
     for slide_idx, slide in enumerate(deck.slides):
-        for elem_idx, element in enumerate(slide.elements):
+
+        def validate_element(element, slide_idx, slide_title, elem_idx):
             if isinstance(element, Image):
                 img_path = base_dir / element.source
                 if not img_path.is_file():
@@ -26,7 +27,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                         "code": "image_not_found",
                         "message": f"Slide {slide_idx+1}: Image file not found: {element.source}",
                         "slide_index": slide_idx,
-                        "slide_title": slide.title,
+                        "slide_title": slide_title,
                         "element_index": elem_idx,
                         "element_type": "Image",
                         "field": "source"
@@ -38,7 +39,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                         "code": "invalid_gallery_rows",
                         "message": f"Slide {slide_idx+1}: Gallery rows must be a positive integer.",
                         "slide_index": slide_idx,
-                        "slide_title": slide.title,
+                        "slide_title": slide_title,
                         "element_index": elem_idx,
                         "element_type": "Gallery",
                         "field": "rows"
@@ -48,7 +49,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                         "code": "invalid_gallery_columns",
                         "message": f"Slide {slide_idx+1}: Gallery columns must be a positive integer.",
                         "slide_index": slide_idx,
-                        "slide_title": slide.title,
+                        "slide_title": slide_title,
                         "element_index": elem_idx,
                         "element_type": "Gallery",
                         "field": "columns"
@@ -60,7 +61,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                             "code": "image_not_found",
                             "message": f"Slide {slide_idx+1}: Gallery image file not found: {img.source}",
                             "slide_index": slide_idx,
-                            "slide_title": slide.title,
+                            "slide_title": slide_title,
                             "element_index": elem_idx,
                             "element_type": "Gallery",
                             "field": f"images[{img_idx}].source"
@@ -72,7 +73,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                         "code": "invalid_flow_direction",
                         "message": f"Slide {slide_idx+1}: Invalid Flow direction '{element.direction}'. Must be 'horizontal' or 'vertical'.",
                         "slide_index": slide_idx,
-                        "slide_title": slide.title,
+                        "slide_title": slide_title,
                         "element_index": elem_idx,
                         "element_type": "Flow",
                         "field": "direction"
@@ -85,7 +86,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                             "code": "invalid_flow_edge",
                             "message": f"Slide {slide_idx+1}: Flow edge references unknown from_node '{edge.from_node}'",
                             "slide_index": slide_idx,
-                            "slide_title": slide.title,
+                            "slide_title": slide_title,
                             "element_index": elem_idx,
                             "element_type": "Flow",
                             "field": "edges.from_node"
@@ -95,7 +96,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                             "code": "invalid_flow_edge",
                             "message": f"Slide {slide_idx+1}: Flow edge references unknown to_node '{edge.to_node}'",
                             "slide_index": slide_idx,
-                            "slide_title": slide.title,
+                            "slide_title": slide_title,
                             "element_index": elem_idx,
                             "element_type": "Flow",
                             "field": "edges.to_node"
@@ -106,7 +107,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                         "code": "invalid_comparison_columns",
                         "message": f"Slide {slide_idx+1}: Comparison element must have at least 2 columns.",
                         "slide_index": slide_idx,
-                        "slide_title": slide.title,
+                        "slide_title": slide_title,
                         "element_index": elem_idx,
                         "element_type": "Comparison",
                         "field": "columns"
@@ -117,7 +118,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                         "code": "invalid_timeline_events",
                         "message": f"Slide {slide_idx+1}: Timeline element must have at least 1 event.",
                         "slide_index": slide_idx,
-                        "slide_title": slide.title,
+                        "slide_title": slide_title,
                         "element_index": elem_idx,
                         "element_type": "Timeline",
                         "field": "events"
@@ -128,7 +129,7 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                         "code": "invalid_code_block",
                         "message": f"Slide {slide_idx+1}: CodeBlock element must have code content.",
                         "slide_index": slide_idx,
-                        "slide_title": slide.title,
+                        "slide_title": slide_title,
                         "element_index": elem_idx,
                         "element_type": "CodeBlock",
                         "field": "code"
@@ -139,12 +140,59 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                         "code": "invalid_tree",
                         "message": f"Slide {slide_idx+1}: Tree element must have a root node.",
                         "slide_index": slide_idx,
-                        "slide_title": slide.title,
+                        "slide_title": slide_title,
                         "element_index": elem_idx,
                         "element_type": "Tree",
                         "field": "root"
                     })
+            elif type(element).__name__ == 'Split':
+                if element.direction not in ('horizontal', 'vertical'):
+                    errors.append({
+                        "code": "invalid_split_direction",
+                        "message": f"Slide {slide_idx+1}: Invalid Split direction '{element.direction}'. Must be 'horizontal' or 'vertical'.",
+                        "slide_index": slide_idx,
+                        "slide_title": slide_title,
+                        "element_index": elem_idx,
+                        "element_type": "Split",
+                        "field": "direction"
+                    })
+                if len(element.panels) < 1:
+                    errors.append({
+                        "code": "invalid_split_panels",
+                        "message": f"Slide {slide_idx+1}: Split element must have at least 1 panel.",
+                        "slide_index": slide_idx,
+                        "slide_title": slide_title,
+                        "element_index": elem_idx,
+                        "element_type": "Split",
+                        "field": "panels"
+                    })
+                for p_idx, panel in enumerate(element.panels):
+                    if not panel.title and not panel.elements:
+                        errors.append({
+                            "code": "empty_panel",
+                            "message": f"Slide {slide_idx+1}: Panel {p_idx+1} is empty. It must have either a title or elements.",
+                            "slide_index": slide_idx,
+                            "slide_title": slide_title,
+                            "element_index": elem_idx,
+                            "element_type": "Split",
+                            "field": f"panels[{p_idx}]"
+                        })
+                    for pe_idx, pe in enumerate(panel.elements):
+                        if type(pe).__name__ == 'Split':
+                            errors.append({
+                                "code": "nested_split_unsupported",
+                                "message": f"Slide {slide_idx+1}: Nested Split elements are not supported.",
+                                "slide_index": slide_idx,
+                                "slide_title": slide_title,
+                                "element_index": elem_idx,
+                                "element_type": "Split",
+                                "field": f"panels[{p_idx}].elements[{pe_idx}]"
+                            })
+                        else:
+                            validate_element(pe, slide_idx, slide_title, pe_idx)
 
+        for elem_idx, element in enumerate(slide.elements):
+            validate_element(element, slide_idx, slide.title, elem_idx)
     if errors:
         # Preserve backwards compatibility by throwing ValidationError with the first error string if simple code expects it,
         # but attach the structured errors for the CLI.

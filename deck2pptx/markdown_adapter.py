@@ -30,34 +30,104 @@ def load_markdown(file_path: str | Path) -> Deck:
                 pass
             content = parts[2].lstrip()
             
+    def parse_html_comment(line):
+        import shlex
+        m = re.match(r'^<!--(.*?)-->$', line.strip())
+        if not m: return []
+        content = m.group(1).strip()
+        
+        commands = []
+        current = []
+        in_quotes = False
+        for char in content:
+            if char == '"':
+                in_quotes = not in_quotes
+                current.append(char)
+            elif char == ';' and not in_quotes:
+                commands.append(''.join(current).strip())
+                current = []
+            else:
+                current.append(char)
+        if current:
+            commands.append(''.join(current).strip())
+            
+        parsed_cmds = []
+        for cmd in commands:
+            if not cmd: continue
+            try:
+                tokens = shlex.split(cmd)
+                if not tokens: continue
+                
+                if '=' in tokens[0] and tokens[0] != '=':
+                    parts = tokens[0].split('=', 1)
+                    cmd_name = parts[0].lower()
+                    args = [parts[1]] + tokens[1:]
+                else:
+                    cmd_name = tokens[0].lower()
+                    args = tokens[1:]
+                    
+                if cmd_name in ('l', 'layout'): cmd_name = 'layout'
+                elif cmd_name in ('sub', 'subtitle'): cmd_name = 'subtitle'
+                elif cmd_name in ('ph', 'place', 'placeholder'): cmd_name = 'placeholder'
+                elif cmd_name in ('new', 'new_page', 'newpage'): cmd_name = 'newpage'
+                
+                parsed_args = []
+                for arg in args:
+                    if '=' in arg:
+                        k, v = arg.split('=', 1)
+                        parsed_args.append((k, v))
+                    else:
+                        parsed_args.append(arg)
+                parsed_cmds.append((cmd_name, parsed_args))
+            except:
+                pass
+        return parsed_cmds
+
     # 2. Split into slides
     lines = content.splitlines()
     slides_data = []
     current_slide_lines = []
-    
-    # Look ahead for layout comments before headings
     pending_layout = None
 
     for line in lines:
         sline = line.strip()
-        layout_match = re.match(r'^<!--\s*layout="(.*?)"\s*-->$', sline)
-        if layout_match:
-            pending_layout = layout_match.group(1)
-            continue
-            
-        new_page_match = re.match(r'^<!--\s*new_page(?:="(.*?)")?\s*-->$', sline)
-        if new_page_match:
+        cmds = parse_html_comment(sline)
+        has_newpage = any(cmd == 'newpage' for cmd, _ in cmds)
+        has_layout = any(cmd == 'layout' for cmd, _ in cmds)
+        
+        if has_newpage:
             if current_slide_lines:
                 if not all(not l.strip() for l in current_slide_lines):
                     slides_data.append((pending_layout, current_slide_lines))
-            pending_layout = new_page_match.group(1)
+            new_layout = None
+            for cmd, args in cmds:
+                if cmd in ('newpage', 'layout') and args:
+                    new_layout = args[0]
+            pending_layout = new_layout
             current_slide_lines = [""]
+            other_cmds = [(c, a) for c, a in cmds if c not in ('newpage', 'layout')]
+            if other_cmds:
+                current_slide_lines.append(line)
+            continue
+            
+        if has_layout and not has_newpage and len(cmds) == 1:
+            for cmd, args in cmds:
+                if cmd == 'layout' and args:
+                    if type(args[0]) == tuple: # handled "layout=Name"
+                        pending_layout = args[0][1] if args[0][0] == 'layout' else args[0][1] # Wait, if parts[0] was layout...
+                    else:
+                        pending_layout = args[0]
             continue
             
         if re.match(r'^(#{1,3})\s+', line):
             if current_slide_lines:
-                if all(not l.strip() for l in current_slide_lines):
-                    current_slide_lines = [line]
+                has_content = False
+                for l in current_slide_lines:
+                    if l.strip() and not l.strip().startswith('<!--'):
+                        has_content = True
+                        break
+                if not has_content:
+                    current_slide_lines.append(line)
                 else:
                     slides_data.append((pending_layout, current_slide_lines))
                     current_slide_lines = [line]
@@ -74,30 +144,46 @@ def load_markdown(file_path: str | Path) -> Deck:
         if not slide_lines:
             continue
             
-        header_line = slide_lines[0]
-        title = header_line.lstrip('#').strip()
+        title_line_idx = -1
+        for idx, ln in enumerate(slide_lines):
+            if re.match(r'^(#{1,3})\s+', ln):
+                title_line_idx = idx
+                break
         
+        if title_line_idx >= 0:
+            title = slide_lines[title_line_idx].lstrip('#').strip()
+        else:
+            title = ""
+            
+        i = 0
+            
         slide = Slide(title=title, layout_hint=layout_hint)
         
-        i = 1
         current_text = []
         current_bullets = []
         current_table = []
         current_placeholder = None
         
+        active_split = None
+        active_panel = None
+        
+        def get_target_list():
+            if active_panel:
+                return active_panel.elements
+            return slide.elements
+        
         def commit_text():
             if current_text:
-                slide.elements.append(Text(content=' '.join(current_text), placeholder=current_placeholder))
+                get_target_list().append(Text(content=' '.join(current_text), placeholder=current_placeholder))
                 current_text.clear()
         
         def commit_bullets():
             if current_bullets:
-                slide.elements.append(BulletList(items=list(current_bullets), placeholder=current_placeholder))
+                get_target_list().append(BulletList(items=list(current_bullets), placeholder=current_placeholder))
                 current_bullets.clear()
                 
         def commit_table():
             if current_table:
-                # First row is header, second is divider, rest are rows
                 headers = []
                 rows = []
                 if len(current_table) > 2 and '---' in current_table[1]:
@@ -109,24 +195,75 @@ def load_markdown(file_path: str | Path) -> Deck:
                     for r in current_table:
                         if r.strip('|'):
                             rows.append([c.strip() for c in r.strip('|').split('|')])
-                slide.elements.append(Table(headers=headers if headers else None, rows=rows, placeholder=current_placeholder))
+                get_target_list().append(Table(headers=headers if headers else None, rows=rows, placeholder=current_placeholder))
                 current_table.clear()
                 
         while i < len(slide_lines):
+            if i == title_line_idx:
+                i += 1
+                continue
+
             raw_line = slide_lines[i]
             line = raw_line.strip()
             
-            sub_match = re.match(r'^<!--\s*subtitle="(.*?)"\s*-->$', line)
-            if sub_match:
-                slide.subtitle = sub_match.group(1)
-                i += 1
-                continue
-                
-            place_match = re.match(r'^<!--\s*place(?:holder)?="(.*?)"\s*-->$', line)
-            if place_match:
-                current_placeholder = place_match.group(1)
-                i += 1
-                continue
+            cmds = parse_html_comment(line)
+            if cmds:
+                handled_line = False
+                for cmd, args in cmds:
+                    if cmd == 'subtitle':
+                        slide.subtitle = args[0] if args else None
+                        handled_line = True
+                    elif cmd == 'layout':
+                        slide.layout_hint = args[0] if args else None
+                        handled_line = True
+                    elif cmd == 'placeholder':
+                        current_placeholder = args[0] if args else None
+                        handled_line = True
+                    elif cmd == 'split':
+                        commit_text()
+                        commit_bullets()
+                        commit_table()
+                        from .models import Split, Panel
+                        direction = 'horizontal'
+                        if args:
+                            arg = args[0]
+                            if isinstance(arg, tuple) and arg[0] == 'direction':
+                                direction = 'horizontal' if arg[1] in ('h', 'horizontal') else 'vertical'
+                            elif isinstance(arg, str):
+                                direction = 'horizontal' if arg in ('h', 'horizontal') else 'vertical'
+                        active_split = Split(direction=direction, panels=[], placeholder=current_placeholder)
+                        slide.elements.append(active_split)
+                        active_panel = Panel()
+                        active_split.panels.append(active_panel)
+                        handled_line = True
+                    elif cmd == 'panel':
+                        commit_text()
+                        commit_bullets()
+                        commit_table()
+                        from .models import Panel
+                        title_val = None
+                        if args:
+                            arg = args[0]
+                            if isinstance(arg, tuple) and arg[0] == 'title':
+                                title_val = arg[1]
+                            elif isinstance(arg, str):
+                                title_val = arg
+                        if active_split:
+                            if len(active_split.panels) == 1 and not active_split.panels[0].elements and active_split.panels[0].title is None:
+                                active_split.panels.clear()
+                            active_panel = Panel(title=title_val)
+                            active_split.panels.append(active_panel)
+                        handled_line = True
+                    elif cmd == '/split':
+                        commit_text()
+                        commit_bullets()
+                        commit_table()
+                        active_split = None
+                        active_panel = None
+                        handled_line = True
+                if handled_line:
+                    i += 1
+                    continue
             
             if not line:
                 commit_text()
@@ -179,7 +316,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                     i += 1
                 
                 if nodes:
-                    slide.elements.append(Flow(direction=direction, nodes=nodes, edges=edges, placeholder=current_placeholder))
+                    get_target_list().append(Flow(direction=direction, nodes=nodes, edges=edges, placeholder=current_placeholder))
                 i += 1
                 continue
                 
@@ -203,7 +340,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                     i += 1
                 if current_col_label is not None:
                     columns.append(ComparisonColumn(label=current_col_label, items=current_col_items))
-                slide.elements.append(Comparison(columns=columns, placeholder=current_placeholder))
+                get_target_list().append(Comparison(columns=columns, placeholder=current_placeholder))
                 i += 1
                 continue
                 
@@ -223,7 +360,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                             title, desc = title.split(' - ', 1)
                         events.append(TimelineEvent(label=label.strip(), title=title.strip(), description=desc.strip() if desc else None))
                     i += 1
-                slide.elements.append(Timeline(events=events, placeholder=current_placeholder))
+                get_target_list().append(Timeline(events=events, placeholder=current_placeholder))
                 i += 1
                 continue
                 
@@ -237,7 +374,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                 while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
                     code_lines.append(slide_lines[i])
                     i += 1
-                slide.elements.append(CodeBlock(code='\n'.join(code_lines), language=lang if lang else None, placeholder=current_placeholder))
+                get_target_list().append(CodeBlock(code='\n'.join(code_lines), language=lang if lang else None, placeholder=current_placeholder))
                 i += 1
                 continue
                 
@@ -271,7 +408,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                     elif level > 0 and (level - 1) in nodes_by_level:
                         nodes_by_level[level - 1].children.append(node)
                 if root:
-                    slide.elements.append(Tree(root=root, placeholder=current_placeholder))
+                    get_target_list().append(Tree(root=root, placeholder=current_placeholder))
                 i += 1
                 continue
                 
@@ -283,14 +420,14 @@ def load_markdown(file_path: str | Path) -> Deck:
                 img_src = img_match.group(2).strip()
                 caption = img_alt if img_alt else None
                 
-                # Check if last element is Gallery with same placeholder, and append. If Image, convert to Gallery.
-                if slide.elements and isinstance(slide.elements[-1], Gallery) and slide.elements[-1].placeholder == current_placeholder:
-                    slide.elements[-1].images.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
-                elif slide.elements and isinstance(slide.elements[-1], Image) and slide.elements[-1].placeholder == current_placeholder:
-                    prev_img = slide.elements.pop()
-                    slide.elements.append(Gallery(images=[prev_img, Image(source=img_src, caption=caption, placeholder=current_placeholder)], placeholder=current_placeholder))
+                target_list = get_target_list()
+                if target_list and isinstance(target_list[-1], Gallery) and target_list[-1].placeholder == current_placeholder:
+                    target_list[-1].images.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
+                elif target_list and isinstance(target_list[-1], Image) and target_list[-1].placeholder == current_placeholder:
+                    prev_img = target_list.pop()
+                    target_list.append(Gallery(images=[prev_img, Image(source=img_src, caption=caption, placeholder=current_placeholder)], placeholder=current_placeholder))
                 else:
-                    slide.elements.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
+                    target_list.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
                 i += 1
                 continue
                 
@@ -301,6 +438,9 @@ def load_markdown(file_path: str | Path) -> Deck:
         commit_text()
         commit_bullets()
         commit_table()
+        
+        if active_split:
+            raise ValueError(f"Slide '{title}': Unclosed Split detected. A <!-- split --> was started but never closed with <!-- /split -->.")
         
         deck.slides.append(slide)
 

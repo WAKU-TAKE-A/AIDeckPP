@@ -91,7 +91,18 @@ class Tree:
     root: TreeNode
     placeholder: Optional[str] = None
 
-Element = Union[Text, BulletList, Image, Table, Gallery, Flow, Comparison, Timeline, CodeBlock, Tree]
+@dataclass
+class Panel:
+    title: Optional[str] = None
+    elements: List['Element'] = field(default_factory=list)
+
+@dataclass
+class Split:
+    direction: str
+    panels: List[Panel]
+    placeholder: Optional[str] = None
+
+Element = Union[Text, BulletList, Image, Table, Gallery, Flow, Comparison, Timeline, CodeBlock, Tree, Split]
 
 @dataclass
 class Slide:

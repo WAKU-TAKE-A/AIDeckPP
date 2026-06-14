@@ -27,10 +27,10 @@ def load_yaml(file_path: str | Path) -> Deck:
             layout_hint=slide_data.get('layout_hint')
         )
         
-        for elem_data in slide_data.get('elements', []):
+        def _parse_element(elem_data):
             placeholder = elem_data.get('placeholder')
             if 'text' in elem_data:
-                slide.elements.append(Text(content=elem_data['text'], placeholder=placeholder))
+                return Text(content=elem_data['text'], placeholder=placeholder)
             elif 'bullet_list' in elem_data:
                 from .models import ListItem
                 parsed_items = []
@@ -39,20 +39,20 @@ def load_yaml(file_path: str | Path) -> Deck:
                         parsed_items.append(ListItem(text=item.get('text', ''), level=item.get('level', 0)))
                     else:
                         parsed_items.append(str(item))
-                slide.elements.append(BulletList(items=parsed_items, placeholder=placeholder))
+                return BulletList(items=parsed_items, placeholder=placeholder)
             elif 'image' in elem_data:
                 img_data = elem_data['image']
                 if isinstance(img_data, dict):
-                    slide.elements.append(Image(source=img_data.get('source', ''), caption=img_data.get('caption'), placeholder=placeholder))
+                    return Image(source=img_data.get('source', ''), caption=img_data.get('caption'), placeholder=placeholder)
                 else:
-                    slide.elements.append(Image(source=str(img_data), placeholder=placeholder))
+                    return Image(source=str(img_data), placeholder=placeholder)
             elif 'table' in elem_data:
                 table_data = elem_data['table']
-                slide.elements.append(Table(
+                return Table(
                     headers=table_data.get('headers', []),
                     rows=table_data.get('rows', []),
                     placeholder=placeholder
-                ))
+                )
             elif 'gallery' in elem_data:
                 gallery_data = elem_data['gallery']
                 images = []
@@ -61,48 +61,48 @@ def load_yaml(file_path: str | Path) -> Deck:
                         images.append(Image(source=img.get('source', ''), caption=img.get('caption')))
                     else:
                         images.append(Image(source=str(img)))
-                slide.elements.append(Gallery(
+                return Gallery(
                     images=images,
                     rows=gallery_data.get('rows'),
                     columns=gallery_data.get('columns'),
                     placeholder=placeholder
-                ))
+                )
             elif 'flow' in elem_data:
                 flow_data = elem_data['flow']
                 nodes = [FlowNode(id=n['id'], label=n['label']) for n in flow_data.get('nodes', [])]
                 edges = [FlowEdge(from_node=e['from'], to_node=e['to']) for e in flow_data.get('edges', [])]
-                slide.elements.append(Flow(
+                return Flow(
                     direction=flow_data.get('direction', 'horizontal'),
                     nodes=nodes,
                     edges=edges,
                     placeholder=placeholder
-                ))
+                )
             elif 'comparison' in elem_data:
                 from .models import Comparison, ComparisonColumn
                 comp_data = elem_data['comparison']
                 columns = [ComparisonColumn(label=c.get('label', ''), items=c.get('items', [])) for c in comp_data.get('columns', [])]
-                slide.elements.append(Comparison(
+                return Comparison(
                     columns=columns,
                     title=comp_data.get('title'),
                     placeholder=placeholder
-                ))
+                )
             elif 'timeline' in elem_data:
                 from .models import Timeline, TimelineEvent
                 tl_data = elem_data['timeline']
                 events = [TimelineEvent(label=e.get('label', ''), title=e.get('title', ''), description=e.get('description')) for e in tl_data.get('events', [])]
-                slide.elements.append(Timeline(
+                return Timeline(
                     events=events,
                     placeholder=placeholder
-                ))
+                )
             elif 'code_block' in elem_data:
                 from .models import CodeBlock
                 cb_data = elem_data['code_block']
-                slide.elements.append(CodeBlock(
+                return CodeBlock(
                     code=cb_data.get('code', ''),
                     language=cb_data.get('language'),
                     caption=cb_data.get('caption'),
                     placeholder=placeholder
-                ))
+                )
             elif 'tree' in elem_data:
                 from .models import Tree, TreeNode
                 tree_data = elem_data['tree']
@@ -113,7 +113,30 @@ def load_yaml(file_path: str | Path) -> Deck:
                     )
                 if 'root' in tree_data:
                     root = parse_tree_node(tree_data['root'])
-                    slide.elements.append(Tree(root=root, placeholder=placeholder))
+                    return Tree(root=root, placeholder=placeholder)
+                return None
+            elif 'split' in elem_data:
+                from .models import Split, Panel
+                split_data = elem_data['split']
+                panels = []
+                for p_data in split_data.get('panels', []):
+                    panel = Panel(title=p_data.get('title'))
+                    for pe_data in p_data.get('elements', []):
+                        parsed = _parse_element(pe_data)
+                        if parsed:
+                            panel.elements.append(parsed)
+                    panels.append(panel)
+                return Split(
+                    direction=split_data.get('direction', 'horizontal'),
+                    panels=panels,
+                    placeholder=placeholder
+                )
+            return None
+
+        for elem_data in slide_data.get('elements', []):
+            parsed_element = _parse_element(elem_data)
+            if parsed_element:
+                slide.elements.append(parsed_element)
         deck.slides.append(slide)
     
     return deck

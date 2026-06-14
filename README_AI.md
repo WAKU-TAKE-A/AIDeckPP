@@ -27,8 +27,18 @@ The `Deck` model is canonical.
   - `Timeline`: ` ```timeline ` block with `Date: Title - Description`
   - `CodeBlock`: ` ```code python ` block for source code
   - `Tree`: ` ```tree ` block for hierarchical structures
+  - `Split`: a multi-panel layout splitting the slide area `horizontal` or `vertical`.
 
 Avoid using generic tables and bullets for comparisons, timelines, code, or hierarchy. Use the semantic elements designed for business presentations.
+
+## Markdown Control Comments
+
+Markdown uses HTML comments for slide controls and structure. Multiple commands can be combined with `;`. String values should be quoted (e.g. `"TitleLayout"`).
+
+- **Layout & Targeting**: `<!-- layout "Name" -->`, `<!-- subtitle "Text" -->`, `<!-- placeholder "Name" -->`
+- **Short aliases**: `<!-- l "Name" -->`, `<!-- sub "Text" -->`, `<!-- ph "Name" -->`
+- **Slide logic**: `#` headings start new slides. `<!-- newpage "Name" -->` (or `new`) explicitly creates a new slide.
+- **Split/Panel Layouts**: Use `<!-- split h -->` or `<!-- split v -->` to create multi-panel regions. Add `<!-- panel "Title" -->` to define sections. Close with `<!-- /split -->`. Nested splits are not supported. Note: The `style` property, font size controls, and weighted panel rendering are future work and are NOT implemented.
 
 ## Required Authoring Loop
 
