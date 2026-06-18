@@ -20,8 +20,8 @@ The `Deck` model is canonical.
   - `Text`: plain paragraphs
   - `BulletList`: generated from `-` or `*`
   - `Table`: standard Markdown tables
-  - `Image`: `![alt](path)` (automatically preserves alt text as a caption; becomes a Gallery if multiple are consecutive)
-  - `Gallery`: automatic grid layout of multiple images. If the user wants explicit layouts (e.g., exactly 2x2 or 3x1), prefer YAML input over inventing Markdown dialects.
+  - `Image`: `![alt](path)` (automatically preserves alt text as a caption)
+  - `Gallery`: explicit grid layout of multiple images using `<!-- gallery [cols] -->` (e.g. `<!-- gallery 3 -->`).
   - `Flow`: simple flowchart (` ```flow `)
   - `Comparison`: ` ```comparison ` block with columns labeled by `Label:` and `- item` lists
   - `Timeline`: ` ```timeline ` block with `Date: Title - Description`
@@ -37,6 +37,7 @@ Markdown uses HTML comments for slide controls and structure. Multiple commands 
 
 - **Layout & Targeting**: `<!-- layout "Name" -->`, `<!-- subtitle "Text" -->`, `<!-- placeholder "Name" -->`
 - **Short aliases**: `<!-- l "Name" -->`, `<!-- sub "Text" -->`, `<!-- ph "Name" -->`
+- **Alignment**: `<!-- align "top" -->` to set vertical alignment (`top`, `semi-top`, `normal`, `semi-bottom`, `bottom`).
 - **Slide logic**: `#` headings start new slides. `<!-- newpage "Name" -->` (or `new`) explicitly creates a new slide.
 - **Split/Panel Layouts**: Use `<!-- split h -->` or `<!-- split v -->` to create multi-panel regions. Add `<!-- panel "Title" -->` to define sections. Close with `<!-- /split -->`. Nested splits are not supported. Note: The `style` property, font size controls, and weighted panel rendering are future work and are NOT implemented.
 
