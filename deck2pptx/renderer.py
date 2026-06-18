@@ -465,7 +465,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             )
                             style_flow_arrow(arrow)
 
-                current_y += Inches(3)
+                if not ph:
+                    if element.direction == 'horizontal':
+                        current_y += node_height + Inches(0.5)
+                    else:
+                        current_y += len(element.nodes) * (node_height + Inches(0.5)) + Inches(0.5)
 
             elif type(element).__name__ == 'Comparison':
                 num_cols = len(element.columns)
@@ -487,7 +491,10 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     for i, col in enumerate(element.columns):
                         x = start_x + (i * col_width)
                         
-                        tb = slide.shapes.add_textbox(x, start_y, col_width, Inches(2))
+                        max_items = max((len(c.items) for c in element.columns), default=0)
+                        box_height = Inches(max(1.0, (1 + max_items) * 0.25 + 0.2))
+                        
+                        tb = slide.shapes.add_textbox(x, start_y, col_width, box_height)
                         tf = tb.text_frame
                         tf.word_wrap = True
                         
@@ -505,7 +512,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             p.font.name = theme.font_name
                             p.font.size = theme.size_body_small
                             
-                    if not ph: current_y += Inches(2.5)
+                    if not ph: current_y += box_height + Inches(0.5)
             
             elif type(element).__name__ == 'Timeline':
                 start_x = ph.left if ph else content_x
@@ -564,7 +571,10 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     p.font.italic = True
                     start_y += Inches(0.4)
                 
-                shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, start_x, start_y, width, Inches(2))
+                line_count = len(element.code.splitlines()) if element.code else 1
+                box_height = Inches(max(1.0, line_count * 0.25 + 0.2))
+                
+                shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, start_x, start_y, width, box_height)
                 shape.fill.solid()
                 shape.fill.fore_color.rgb = theme.color_surface
                 shape.line.color.rgb = theme.color_border
@@ -576,15 +586,22 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 p.font.name = "Consolas"
                 p.font.size = Pt(14)
                 p.font.color.rgb = theme.color_text
+                p.alignment = PP_ALIGN.LEFT
                 
-                if not ph: current_y += Inches(2.5)
+                if not ph: current_y += box_height + Inches(0.5)
 
             elif type(element).__name__ == 'Tree':
                 start_x = ph.left if ph else content_x
                 start_y = ph.top if ph else current_y
                 width = ph.width if ph else layout_content_width
                 
-                tb = slide.shapes.add_textbox(start_x, start_y, width, Inches(2))
+                def count_nodes(node):
+                    return 1 + sum(count_nodes(child) for child in node.children)
+                
+                total_nodes = count_nodes(element.root)
+                box_height = Inches(max(1.0, total_nodes * 0.25 + 0.2))
+                
+                tb = slide.shapes.add_textbox(start_x, start_y, width, box_height)
                 tf = tb.text_frame
                 
                 def render_tree_node(node, level):
@@ -604,7 +621,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                         render_tree_node(child, level + 1)
                         
                 render_tree_node(element.root, 0)
-                if not ph: current_y += Inches(2.5)
+                if not ph: current_y += box_height + Inches(0.5)
 
 
             elif type(element).__name__ == 'Split':
