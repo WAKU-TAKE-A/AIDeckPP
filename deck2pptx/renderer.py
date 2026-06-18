@@ -3,7 +3,7 @@ from pptx.util import Inches, Pt
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pathlib import Path
-from .models import Deck, Slide, Text, BulletList, Image, Table, Gallery, Flow
+from .models import Deck, Slide, Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock
 from .layout import Layout, get_slide_layout_type
 from .theme import Theme
 
@@ -657,21 +657,49 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             p.font.bold = True
                             p.font.color.rgb = theme.color_primary
                             py += Inches(0.5)
-                        for pe in panel.elements:
+                        for idx_pe, pe in enumerate(panel.elements):
                             pe_ph = find_placeholder(getattr(pe, 'placeholder', None))
                             if pe_ph:
                                 render_element(pe, pe_ph.left, pe_ph.top, pe_ph.width, pe_ph.height, pe_ph)
                             else:
-                                py = render_element(pe, px, py, panel_w, panel_h - (py - panel_start_y), None)
+                                adj_h = get_adjusted_height(panel.elements, idx_pe, panel_start_y + panel_h, py)
+                                py = render_element(pe, px, py, panel_w, adj_h, None)
                         py = panel_start_y + panel_h + gap
                     if not ph: current_y = py
             return current_y
 
-        current_y = layout.content_y
+        def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y):
+            remaining_h = total_bottom_y - current_y
+            if remaining_h < Inches(1): remaining_h = Inches(1)
+            
+            remaining_imgs = sum(1 for e in elements_list[current_idx:] if isinstance(e, (Image, Gallery, Split, Table)))
+            remaining_texts = sum(1 for e in elements_list[current_idx:] if isinstance(e, (Text, BulletList, CodeBlock)))
+            
+            reserved_text_h = remaining_texts * Inches(0.8)
+            available_img_h = remaining_h - reserved_text_h
+            if available_img_h < Inches(1): available_img_h = Inches(1)
+            
+            current_element = elements_list[current_idx]
+            if isinstance(current_element, (Image, Gallery, Split, Table)) and remaining_imgs > 0:
+                return available_img_h / remaining_imgs
+            else:
+                return remaining_h
+
+        align_val = getattr(slide_model, 'content_align', None) or getattr(deck, 'content_align', None)
+        y_offset = 0
+        if align_val:
+            val = align_val.lower()
+            if val in ('top',): y_offset = -Inches(0.6)
+            elif val in ('semi-top', 'high'): y_offset = -Inches(0.3)
+            elif val in ('semi-bottom', 'low'): y_offset = Inches(0.3)
+            elif val in ('bottom',): y_offset = Inches(0.6)
+            
+        current_y = layout.content_y + y_offset
         content_x = layout.content_x
-        for element in slide_model.elements:
+        for idx_el, element in enumerate(slide_model.elements):
             ph = find_placeholder(getattr(element, "placeholder", None))
-            current_y = render_element(element, content_x, current_y, layout.content_width, layout.content_height, ph)
+            adj_h = layout.content_height if ph else get_adjusted_height(slide_model.elements, idx_el, layout.content_y + layout.content_height, current_y)
+            current_y = render_element(element, content_x, current_y, layout.content_width, adj_h, ph)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -110,6 +110,7 @@ class Slide:
     subtitle: Optional[str] = None
     notes: Optional[str] = None
     layout_hint: Optional[str] = None
+    content_align: Optional[str] = None
     elements: List[Element] = field(default_factory=list)
 
 @dataclass
@@ -125,4 +126,5 @@ class Deck:
     font_size_l2: Optional[int] = None
     font_size_l3: Optional[int] = None
     font_size_l4: Optional[int] = None
+    content_align: Optional[str] = None
     slides: List[Slide] = field(default_factory=list)

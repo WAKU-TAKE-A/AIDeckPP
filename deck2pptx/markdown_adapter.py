@@ -26,6 +26,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                 deck.font_size_l2 = fm.get('font_size_l2')
                 deck.font_size_l3 = fm.get('font_size_l3')
                 deck.font_size_l4 = fm.get('font_size_l4')
+                deck.content_align = fm.get('content_align')
             except:
                 pass
             content = parts[2].lstrip()
@@ -70,6 +71,8 @@ def load_markdown(file_path: str | Path) -> Deck:
                 elif cmd_name in ('sub', 'subtitle'): cmd_name = 'subtitle'
                 elif cmd_name in ('ph', 'place', 'placeholder'): cmd_name = 'placeholder'
                 elif cmd_name in ('new', 'new_page', 'newpage'): cmd_name = 'newpage'
+                elif cmd_name in ('align', 'content_align', 'valign'): cmd_name = 'content_align'
+                elif cmd_name in ('gal', 'gallery'): cmd_name = 'gallery'
                 
                 parsed_args = []
                 for arg in args:
@@ -180,6 +183,7 @@ def load_markdown(file_path: str | Path) -> Deck:
         
         active_split = None
         active_panel = None
+        active_gallery = None
         
         def get_target_list():
             if active_panel:
@@ -187,9 +191,11 @@ def load_markdown(file_path: str | Path) -> Deck:
             return slide.elements
         
         def commit_text():
+            nonlocal active_gallery
             if current_text:
                 get_target_list().append(Text(content=join_text_lines(current_text), placeholder=current_placeholder))
                 current_text.clear()
+                active_gallery = None
 
         def join_text_lines(lines):
             content = ""
@@ -211,11 +217,14 @@ def load_markdown(file_path: str | Path) -> Deck:
             return text
         
         def commit_bullets():
+            nonlocal active_gallery
             if current_bullets:
                 get_target_list().append(BulletList(items=list(current_bullets), placeholder=current_placeholder))
                 current_bullets.clear()
+                active_gallery = None
                 
         def commit_table():
+            nonlocal active_gallery
             if current_table:
                 headers = []
                 rows = []
@@ -228,8 +237,9 @@ def load_markdown(file_path: str | Path) -> Deck:
                     for r in current_table:
                         if r.strip('|'):
                             rows.append([c.strip() for c in r.strip('|').split('|')])
-                get_target_list().append(Table(headers=headers if headers else None, rows=rows, placeholder=current_placeholder))
+                get_target_list().append(Table(headers=headers, rows=rows, placeholder=current_placeholder))
                 current_table.clear()
+                active_gallery = None
                 
         while i < len(slide_lines):
             if i == title_line_idx:
@@ -249,8 +259,24 @@ def load_markdown(file_path: str | Path) -> Deck:
                     elif cmd == 'layout':
                         slide.layout_hint = args[0] if args else None
                         handled_line = True
+                    elif cmd == 'content_align':
+                        slide.content_align = args[0] if args else None
+                        handled_line = True
                     elif cmd == 'placeholder':
                         current_placeholder = args[0] if args else None
+                        handled_line = True
+                    elif cmd == 'gallery':
+                        commit_text()
+                        commit_bullets()
+                        commit_table()
+                        cols = None
+                        if args:
+                            try:
+                                cols = int(args[0])
+                            except:
+                                pass
+                        active_gallery = Gallery(images=[], columns=cols, placeholder=current_placeholder)
+                        get_target_list().append(active_gallery)
                         handled_line = True
                     elif cmd == 'split':
                         commit_text()
@@ -302,6 +328,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                 commit_text()
                 commit_bullets()
                 commit_table()
+                active_gallery = None
                 i += 1
                 continue
                 
@@ -331,6 +358,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             # Flow Block
             if line.startswith('```flow'):
                 commit_text()
+                active_gallery = None
                 direction = 'horizontal'
                 if 'vertical' in line:
                     direction = 'vertical'
@@ -356,6 +384,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             # Comparison Block
             if line.startswith('```comparison'):
                 commit_text()
+                active_gallery = None
                 i += 1
                 from .models import Comparison, ComparisonColumn
                 columns = []
@@ -380,6 +409,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             # Timeline Block
             if line.startswith('```timeline'):
                 commit_text()
+                active_gallery = None
                 i += 1
                 from .models import Timeline, TimelineEvent
                 events = []
@@ -400,6 +430,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             # CodeBlock
             if line.startswith('```code'):
                 commit_text()
+                active_gallery = None
                 lang = line[7:].strip()
                 i += 1
                 from .models import CodeBlock
@@ -414,6 +445,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             # Tree Block
             if line.startswith('```tree'):
                 commit_text()
+                active_gallery = None
                 i += 1
                 from .models import Tree, TreeNode
                 tree_lines = []
@@ -453,14 +485,10 @@ def load_markdown(file_path: str | Path) -> Deck:
                 img_src = img_match.group(2).strip()
                 caption = img_alt if img_alt else None
                 
-                target_list = get_target_list()
-                if target_list and isinstance(target_list[-1], Gallery) and target_list[-1].placeholder == current_placeholder:
-                    target_list[-1].images.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
-                elif target_list and isinstance(target_list[-1], Image) and target_list[-1].placeholder == current_placeholder:
-                    prev_img = target_list.pop()
-                    target_list.append(Gallery(images=[prev_img, Image(source=img_src, caption=caption, placeholder=current_placeholder)], placeholder=current_placeholder))
+                if active_gallery and active_gallery.placeholder == current_placeholder:
+                    active_gallery.images.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
                 else:
-                    target_list.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
+                    get_target_list().append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
                 i += 1
                 continue
                 

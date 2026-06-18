@@ -17,14 +17,16 @@ def load_yaml(file_path: str | Path) -> Deck:
         font_size_l1=data.get('font_size_l1'),
         font_size_l2=data.get('font_size_l2'),
         font_size_l3=data.get('font_size_l3'),
-        font_size_l4=data.get('font_size_l4')
+        font_size_l4=data.get('font_size_l4'),
+        content_align=data.get('content_align')
     )
     for slide_data in data.get('slides', []):
         slide = Slide(
             title=slide_data.get('title', ''),
             subtitle=slide_data.get('subtitle'),
             notes=slide_data.get('notes'),
-            layout_hint=slide_data.get('layout_hint')
+            layout_hint=slide_data.get('layout_hint'),
+            content_align=slide_data.get('content_align')
         )
         
         def _parse_element(elem_data):
