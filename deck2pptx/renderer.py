@@ -1,9 +1,9 @@
 from pptx import Presentation
 from pptx.util import Inches, Pt
-from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.shapes import MSO_SHAPE, MSO_CONNECTOR
 from pptx.enum.text import PP_ALIGN
 from pathlib import Path
-from .models import Deck, Slide, Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock
+from .models import Deck, Slide, Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock, Mermaid
 from .layout import Layout, get_slide_layout_type
 from .theme import Theme
 
@@ -44,8 +44,27 @@ def _estimate_element_height(element, content_width):
         box_h = Inches(max(1.0, lines * 0.25 + 0.2))
         caption_h = Inches(0.4) if (getattr(element, 'caption', None) or getattr(element, 'language', None)) else 0
         return caption_h + box_h
+        
+    if isinstance(element, Mermaid):
+        from . import mermaid_handler
+        if mermaid_handler.has_mermaid_cli():
+            return getattr(element, 'height_hint', None) or Inches(3.0)
+        else:
+            lines = len(element.code.splitlines()) if element.code else 1
+            box_h = Inches(max(1.0, lines * 0.25 + 0.2))
+            return box_h
 
-    # Image, Gallery, Table, Flow, Comparison, Timeline, Tree, Split:
+    if isinstance(element, Tree):
+        def count_leaves(node):
+            if not node.children:
+                return 1
+            return sum(count_leaves(child) for child in node.children)
+        leaf_count = count_leaves(element.root)
+        node_height = Inches(0.4)
+        vertical_gap = Inches(0.15)
+        return max(Inches(1.0), leaf_count * node_height + (leaf_count - 1) * vertical_gap)
+
+    # Image, Gallery, Table, Flow, Comparison, Timeline, Split:
     # height depends on runtime data — caller handles these separately.
     return Inches(1.0)
 
@@ -625,7 +644,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                         rendered_height = len(element.events) * event_height
                     current_y += rendered_height + ELEMENT_GAP
 
-            elif type(element).__name__ == 'CodeBlock':
+            elif isinstance(element, CodeBlock):
                 start_x = ph.left if ph else content_x
                 start_y = ph.top if ph else current_y
                 width = ph.width if ph else layout_content_width
@@ -659,44 +678,108 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 if not ph:
                     rendered_height = getattr(element, 'height_hint', None)
                     if rendered_height is None:
-                        rendered_height = (Inches(0.4) if getattr(element, 'caption', None) or getattr(element, 'language', None) else 0) + box_height
+                        rendered_height = (Inches(0.4) if element.caption or element.language else 0) + box_height
                     current_y += rendered_height + ELEMENT_GAP
+                    
+            elif isinstance(element, Mermaid):
+                from . import mermaid_handler
+                if mermaid_handler.has_mermaid_cli():
+                    import os
+                    tmp_img = None
+                    try:
+                        tmp_img = mermaid_handler.render_to_temp_image(element.code)
+                        img_elem = Image(source=tmp_img, placeholder=getattr(element, 'placeholder', None), height_hint=getattr(element, 'height_hint', None))
+                        current_y = render_element(img_elem, content_x, current_y, layout_content_width, layout_content_height, ph)
+                    except Exception as e:
+                        cb = CodeBlock(code=f"[Mermaid Error: {e}]\n{element.code}", placeholder=getattr(element, 'placeholder', None), height_hint=getattr(element, 'height_hint', None))
+                        current_y = render_element(cb, content_x, current_y, layout_content_width, layout_content_height, ph)
+                    finally:
+                        if tmp_img and os.path.exists(tmp_img):
+                            try:
+                                os.unlink(tmp_img)
+                            except OSError:
+                                pass
+                else:
+                    cb = CodeBlock(code=element.code, placeholder=getattr(element, 'placeholder', None), height_hint=getattr(element, 'height_hint', None))
+                    current_y = render_element(cb, content_x, current_y, layout_content_width, layout_content_height, ph)
 
             elif type(element).__name__ == 'Tree':
                 start_x = ph.left if ph else content_x
                 start_y = ph.top if ph else current_y
-                width = ph.width if ph else layout_content_width
                 
-                def count_nodes(node):
-                    return 1 + sum(count_nodes(child) for child in node.children)
-                
-                total_nodes = count_nodes(element.root)
-                box_height = Inches(max(1.0, total_nodes * 0.25 + 0.2))
-                
-                tb = slide.shapes.add_textbox(start_x, start_y, width, box_height)
-                tf = tb.text_frame
-                
-                def render_tree_node(node, level):
-                    if level == 0:
-                        p = tf.paragraphs[0]
-                    else:
-                        p = tf.add_paragraph()
-                    
-                    p.text = node.label
-                    if level > 0:
-                        p.level = level
-                        
-                    p.font.name = theme.font_name
-                    p.font.size = Pt(18 - (level * 2)) if level < 4 else Pt(12)
-                    
+                flat_nodes = []
+                def build_flat_list(node, level, parent_idx):
+                    current_idx = len(flat_nodes)
+                    flat_nodes.append((node, level, parent_idx))
                     for child in node.children:
-                        render_tree_node(child, level + 1)
+                        build_flat_list(child, level + 1, current_idx)
+                build_flat_list(element.root, 0, -1)
+                
+                node_width = Inches(1.5)
+                node_height = Inches(0.4)
+                vertical_gap = Inches(0.15)
+                horizontal_gap = Inches(0.4)
+                indent_width = node_width + horizontal_gap
+                
+                from collections import defaultdict
+                children_by_parent = defaultdict(list)
+                for i, (node, level, parent_idx) in enumerate(flat_nodes):
+                    if parent_idx != -1:
+                        children_by_parent[parent_idx].append(i)
+                
+                leaf_counter = 0
+                node_y = {}
+                def calculate_y(idx):
+                    nonlocal leaf_counter
+                    children = children_by_parent[idx]
+                    if not children:
+                        y = start_y + leaf_counter * (node_height + vertical_gap)
+                        node_y[idx] = y
+                        leaf_counter += 1
+                        return y
+                    else:
+                        child_ys = [calculate_y(c_idx) for c_idx in children]
+                        y = sum(child_ys) / len(child_ys)
+                        node_y[idx] = y
+                        return y
+                calculate_y(0)
+                
+                node_shapes = {}
+                for i, (node, level, parent_idx) in enumerate(flat_nodes):
+                    x = start_x + level * indent_width
+                    y = node_y[i]
+                    
+                    shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, node_width, node_height)
+                    shape.fill.solid()
+                    shape.fill.fore_color.rgb = theme.color_flow_fill
+                    shape.line.color.rgb = theme.color_flow_line
+                    shape.line.width = Pt(1.5)
+                    
+                    tf = shape.text_frame
+                    tf.word_wrap = True
+                    tf.clear()
+                    p = tf.paragraphs[0]
+                    p.text = node.label
+                    p.font.name = theme.font_name
+                    p.font.size = theme.size_body_small
+                    p.font.color.rgb = theme.color_flow_text
+                    p.alignment = PP_ALIGN.CENTER
+                    
+                    node_shapes[i] = shape
+                
+                for parent_idx, child_indices in children_by_parent.items():
+                    for c_idx in child_indices:
+                        connector = slide.shapes.add_connector(MSO_CONNECTOR.ELBOW, 0, 0, 0, 0)
+                        connector.line.color.rgb = theme.color_flow_line
+                        connector.line.width = Pt(1.5)
+                        connector.begin_connect(node_shapes[parent_idx], 3)
+                        connector.end_connect(node_shapes[c_idx], 1)
                         
-                render_tree_node(element.root, 0)
                 if not ph:
                     rendered_height = getattr(element, 'height_hint', None)
                     if rendered_height is None:
-                        rendered_height = box_height
+                        leaf_count = leaf_counter
+                        rendered_height = leaf_count * node_height + (leaf_count - 1) * vertical_gap
                     current_y += rendered_height + ELEMENT_GAP
 
 
@@ -778,24 +861,27 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             remaining_h = total_bottom_y - current_y
             if remaining_h < Inches(1): remaining_h = Inches(1)
 
+            from . import mermaid_handler
+            has_mmdc = mermaid_handler.has_mermaid_cli()
+
             # Reserve height for all text-like elements that come AFTER the current one.
             future_elements = elements_list[current_idx + 1:]
             reserved_text_h = sum(
                 _estimate_element_height(e, content_width) + ELEMENT_GAP
                 for e in future_elements
-                if isinstance(e, (Text, BulletList, CodeBlock))
+                if isinstance(e, (Text, BulletList, CodeBlock)) or (isinstance(e, Mermaid) and not has_mmdc)
             )
 
             remaining_imgs = sum(
                 1 for e in elements_list[current_idx:]
-                if isinstance(e, (Image, Gallery, Split, Table))
+                if isinstance(e, (Image, Gallery, Split, Table)) or (isinstance(e, Mermaid) and has_mmdc)
             )
 
             available_img_h = remaining_h - reserved_text_h
             if available_img_h < Inches(1): available_img_h = Inches(1)
 
             current_element = elements_list[current_idx]
-            if isinstance(current_element, (Image, Gallery, Split, Table)) and remaining_imgs > 0:
+            if (isinstance(current_element, (Image, Gallery, Split, Table)) or (isinstance(current_element, Mermaid) and has_mmdc)) and remaining_imgs > 0:
                 return available_img_h / remaining_imgs
             else:
                 return remaining_h

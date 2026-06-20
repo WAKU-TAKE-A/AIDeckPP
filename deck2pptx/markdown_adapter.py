@@ -363,21 +363,47 @@ def load_markdown(file_path: str | Path) -> Deck:
                 if 'vertical' in line:
                     direction = 'vertical'
                 
+                start_i = i
                 i += 1
                 nodes = []
                 edges = []
                 while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
                     fl = slide_lines[i].strip()
-                    if '->' in fl:
-                        fr, to = fl.split('->')
-                        edges.append(FlowEdge(from_node=fr.strip(), to_node=to.strip()))
-                    elif ':' in fl:
-                        nid, nlabel = fl.split(':', 1)
-                        nodes.append(FlowNode(id=nid.strip(), label=nlabel.strip()))
+                    edge_match = re.search(r'(.+?)\s*-+>\s*(.+)', fl)
+                    if edge_match:
+                        edges.append(FlowEdge(from_node=edge_match.group(1).strip(), to_node=edge_match.group(2).strip()))
+                    else:
+                        node_match = re.match(r'^([^\[\(\{]+?)\s*[\[\(\{](.+?)[\]\)\}]\s*$', fl)
+                        if node_match:
+                            nid = node_match.group(1).strip()
+                            nlabel = node_match.group(2).strip()
+                            if nlabel.startswith('"') and nlabel.endswith('"'):
+                                nlabel = nlabel[1:-1]
+                            nodes.append(FlowNode(id=nid, label=nlabel))
                     i += 1
                 
                 if nodes:
                     get_target_list().append(Flow(direction=direction, nodes=nodes, edges=edges, placeholder=current_placeholder))
+                else:
+                    from .models import CodeBlock
+                    raw_code = '\n'.join(slide_lines[start_i:i+1])
+                    get_target_list().append(CodeBlock(code=raw_code, placeholder=current_placeholder))
+                i += 1
+                continue
+                
+            # Mermaid Block
+            if line.startswith('```mermaid'):
+                commit_text()
+                active_gallery = None
+                start_i = i
+                i += 1
+                code_lines = []
+                while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
+                    code_lines.append(slide_lines[i])
+                    i += 1
+                
+                from .models import Mermaid
+                get_target_list().append(Mermaid(code='\n'.join(code_lines), placeholder=current_placeholder))
                 i += 1
                 continue
                 
@@ -385,6 +411,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             if line.startswith('```comparison'):
                 commit_text()
                 active_gallery = None
+                start_i = i
                 i += 1
                 from .models import Comparison, ComparisonColumn
                 columns = []
@@ -402,7 +429,12 @@ def load_markdown(file_path: str | Path) -> Deck:
                     i += 1
                 if current_col_label is not None:
                     columns.append(ComparisonColumn(label=current_col_label, items=current_col_items))
-                get_target_list().append(Comparison(columns=columns, placeholder=current_placeholder))
+                if columns:
+                    get_target_list().append(Comparison(columns=columns, placeholder=current_placeholder))
+                else:
+                    from .models import CodeBlock
+                    raw_code = '\n'.join(slide_lines[start_i:i+1])
+                    get_target_list().append(CodeBlock(code=raw_code, placeholder=current_placeholder))
                 i += 1
                 continue
                 
@@ -410,6 +442,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             if line.startswith('```timeline'):
                 commit_text()
                 active_gallery = None
+                start_i = i
                 i += 1
                 from .models import Timeline, TimelineEvent
                 events = []
@@ -423,7 +456,12 @@ def load_markdown(file_path: str | Path) -> Deck:
                             title, desc = title.split(' - ', 1)
                         events.append(TimelineEvent(label=label.strip(), title=title.strip(), description=desc.strip() if desc else None))
                     i += 1
-                get_target_list().append(Timeline(events=events, placeholder=current_placeholder))
+                if events:
+                    get_target_list().append(Timeline(events=events, placeholder=current_placeholder))
+                else:
+                    from .models import CodeBlock
+                    raw_code = '\n'.join(slide_lines[start_i:i+1])
+                    get_target_list().append(CodeBlock(code=raw_code, placeholder=current_placeholder))
                 i += 1
                 continue
                 
@@ -446,6 +484,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             if line.startswith('```tree'):
                 commit_text()
                 active_gallery = None
+                start_i = i
                 i += 1
                 from .models import Tree, TreeNode
                 tree_lines = []
@@ -474,6 +513,10 @@ def load_markdown(file_path: str | Path) -> Deck:
                         nodes_by_level[level - 1].children.append(node)
                 if root:
                     get_target_list().append(Tree(root=root, placeholder=current_placeholder))
+                else:
+                    from .models import CodeBlock
+                    raw_code = '\n'.join(slide_lines[start_i:i+1])
+                    get_target_list().append(CodeBlock(code=raw_code, placeholder=current_placeholder))
                 i += 1
                 continue
                 

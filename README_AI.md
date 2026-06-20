@@ -26,8 +26,14 @@ The `Deck` model is canonical.
   - `Comparison`: ` ```comparison ` block with columns labeled by `Label:` and `- item` lists
   - `Timeline`: ` ```timeline ` block with `Date: Title - Description`
   - `CodeBlock`: ` ```code python ` block for source code
+  - `Mermaid`: ` ```mermaid ` block for advanced flowcharts and diagrams
   - `Tree`: ` ```tree ` block for hierarchical structures
   - `Split`: a multi-panel layout splitting the slide area `horizontal` or `vertical`.
+
+*Note on Mermaid*:
+- Mermaid diagrams (`` `mermaid ``) require the Mermaid CLI (`mmdc`) to render. If not installed or misconfigured, the renderer automatically falls back to rendering the raw code inside a `CodeBlock` to prevent crashes.
+- `` `flow `` blocks are rendered natively as PowerPoint auto-shapes and do NOT require the Mermaid CLI.
+- On Windows PowerShell, resolve npm binaries with `.cmd` (e.g. `npx.cmd` instead of `npx`) to bypass script execution policy blocks.
 
 Avoid using generic tables and bullets for comparisons, timelines, code, or hierarchy. Use the semantic elements designed for business presentations.
 

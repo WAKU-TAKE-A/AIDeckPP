@@ -91,6 +91,12 @@ class CodeBlock:
     height_hint: Optional[float] = None
 
 @dataclass
+class Mermaid:
+    code: str
+    placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
+
+@dataclass
 class TreeNode:
     label: str
     children: List['TreeNode'] = field(default_factory=list)
@@ -113,7 +119,7 @@ class Split:
     placeholder: Optional[str] = None
     height_hint: Optional[float] = None
 
-Element = Union[Text, BulletList, Image, Table, Gallery, Flow, Comparison, Timeline, CodeBlock, Tree, Split]
+Element = Union[Text, BulletList, Image, Table, Gallery, Flow, Comparison, Timeline, CodeBlock, Mermaid, Tree, Split]
 
 @dataclass
 class Slide:

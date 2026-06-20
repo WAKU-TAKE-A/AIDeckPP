@@ -86,20 +86,20 @@ Our approach focuses on the following key areas:
 
 ## Horizontal Process
 ```flow
-n1: Research
-n2: Design
-n3: Build
-n1 -> n2
-n2 -> n3
+n1[Research]
+n2[Design]
+n3[Build]
+n1 --> n2
+n2 --> n3
 ```
 
 ## Vertical Drilldown
 ```flow vertical
-top: Executive Summary
-mid: Detailed Analysis
-bot: Raw Data
-top -> mid
-mid -> bot
+top[Executive Summary]
+mid[Detailed Analysis]
+bot[Raw Data]
+top --> mid
+mid --> bot
 ```
 """,
             encoding="utf-8",
