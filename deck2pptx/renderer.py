@@ -7,6 +7,48 @@ from .models import Deck, Slide, Text, BulletList, Image, Table, Gallery, Flow, 
 from .layout import Layout, get_slide_layout_type
 from .theme import Theme
 
+ELEMENT_GAP = Inches(0.15)          # uniform gap between consecutive elements
+_TEXT_LINE_HEIGHT = Inches(0.35)    # estimated height per wrapped line of body text
+_BULLET_LINE_HEIGHT = Inches(0.32)  # estimated height per bullet item line
+_TEXT_MIN_HEIGHT = Inches(0.4)      # minimum text box height (approx 1 line)
+_BULLET_MIN_HEIGHT = Inches(0.8)    # minimum bullet list height
+
+def _estimate_element_height(element, content_width):
+    """Return estimated rendered height (EMU) for an element.
+
+    This is the single source of truth for height estimation shared by
+    render_element() (for actual textbox sizing) and get_adjusted_height()
+    (for lookahead space reservation).  height_hint always takes priority.
+
+    Note: Image/Gallery/Table heights depend on runtime data (image file
+    dimensions, table cell content) and cannot be estimated here; callers
+    should treat those as 'takes remaining space'.
+    """
+    if getattr(element, 'height_hint', None) is not None:
+        return element.height_hint
+
+    if isinstance(element, Text):
+        estimated_lines = element.content.count('\n') + 1 + len(element.content) // 60
+        return max(_TEXT_MIN_HEIGHT, estimated_lines * _TEXT_LINE_HEIGHT)
+
+    if isinstance(element, BulletList):
+        from .models import ListItem
+        weighted = sum(
+            1.0 if (item.level if isinstance(item, ListItem) else 0) == 0 else 0.8
+            for item in element.items
+        )
+        return max(_BULLET_MIN_HEIGHT, weighted * _BULLET_LINE_HEIGHT)
+
+    if isinstance(element, CodeBlock):
+        lines = len(element.code.splitlines()) if element.code else 1
+        box_h = Inches(max(1.0, lines * 0.25 + 0.2))
+        caption_h = Inches(0.4) if (getattr(element, 'caption', None) or getattr(element, 'language', None)) else 0
+        return caption_h + box_h
+
+    # Image, Gallery, Table, Flow, Comparison, Timeline, Tree, Split:
+    # height depends on runtime data — caller handles these separately.
+    return Inches(1.0)
+
 def _remove_existing_slides(prs):
     """Use a template for layouts/theme without carrying starter slides forward."""
     slide_id_list = prs.slides._sldIdLst
@@ -46,13 +88,14 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
     base_dir = Path(base_dir)
     theme = Theme(deck.theme)
     
-    # Set slide dimensions
-    if deck.orientation == 'portrait':
-        prs.slide_width = Inches(7.5)
-        prs.slide_height = Inches(13.333)
-    else:
-        prs.slide_width = Inches(13.333)
-        prs.slide_height = Inches(7.5)
+    # Set slide dimensions (only when no template; templates keep their own size)
+    if not template_path:
+        if deck.orientation == 'portrait':
+            prs.slide_width = Inches(7.5)
+            prs.slide_height = Inches(13.333)
+        else:
+            prs.slide_width = Inches(13.333)
+            prs.slide_height = Inches(7.5)
         
     layout = Layout(prs.slide_width, prs.slide_height)
     
@@ -180,7 +223,8 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     target_x = ph.left if ph else content_x
                     target_y = ph.top if ph else current_y
                     target_w = ph.width if ph else layout_content_width
-                    txBox = slide.shapes.add_textbox(target_x, target_y, target_w, Inches(1))
+                    rendered_height = _estimate_element_height(element, target_w)
+                    txBox = slide.shapes.add_textbox(target_x, target_y, target_w, rendered_height)
                     tf = txBox.text_frame
                     tf.word_wrap = True
                     _set_text_frame_text(
@@ -190,7 +234,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                         font_size=Pt(deck.font_size_l0) if deck.font_size_l0 else theme.size_body,
                         font_color=theme.color_text,
                     )
-                    if not ph: current_y += Inches(0.5)
+                    if not ph: current_y += rendered_height + ELEMENT_GAP
                 
             elif isinstance(element, BulletList):
                 from .models import ListItem
@@ -219,7 +263,8 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     target_x = ph.left if ph else content_x
                     target_y = ph.top if ph else current_y
                     target_w = ph.width if ph else layout_content_width
-                    txBox = slide.shapes.add_textbox(target_x, target_y, target_w, Inches(2))
+                    rendered_height = _estimate_element_height(element, target_w)
+                    txBox = slide.shapes.add_textbox(target_x, target_y, target_w, rendered_height)
                     tf = txBox.text_frame
                     tf.word_wrap = True
                     for i, item in enumerate(element.items):
@@ -241,7 +286,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                         
                         p.font.size = Pt(font_size) if font_size else (theme.size_body if level == 0 else theme.size_body_small)
                         p.font.color.rgb = theme.color_text
-                    if not ph: current_y += Inches(2)
+                    if not ph: current_y += rendered_height + ELEMENT_GAP
                 
             elif isinstance(element, Image):
                 img_path = base_dir / element.source
@@ -285,7 +330,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             p.alignment = PP_ALIGN.CENTER
                             p.font.color.rgb = theme.color_text_light
                             
-                        if not ph: current_y += (new_h if new_h else pic.height) + (Inches(0.4) if element.caption else Inches(0.1))
+                        if not ph:
+                            rendered_height = getattr(element, 'height_hint', None)
+                            if rendered_height is None:
+                                rendered_height = (new_h if new_h else pic.height) + (Inches(0.3) if element.caption else 0)
+                            current_y += rendered_height + ELEMENT_GAP
                 except Exception as e:
                     print(f"Failed to load image {img_path}: {e}")
                     
@@ -314,7 +363,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             p.font.name = theme.font_name
                             p.font.size = Pt(deck.font_size_l1) if deck.font_size_l1 else theme.size_body_small
                         
-                if not ph: current_y += Inches(2)
+                if not ph:
+                    rendered_height = getattr(element, 'height_hint', None)
+                    if rendered_height is None:
+                        rendered_height = table_shape.height
+                    current_y += rendered_height + ELEMENT_GAP
                     
             elif isinstance(element, Gallery):
                 num_images = len(element.images)
@@ -376,7 +429,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     except Exception as e:
                         print(f"Failed to load image {img_path}: {e}")
                 
-                if not ph: current_y += (cell_height * rows_ct)
+                if not ph:
+                    rendered_height = getattr(element, 'height_hint', None)
+                    if rendered_height is None:
+                        rendered_height = cell_height * rows_ct
+                    current_y += rendered_height + ELEMENT_GAP
                 
             elif isinstance(element, Flow):
                 node_width = Inches(1.5)
@@ -466,10 +523,13 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             style_flow_arrow(arrow)
 
                 if not ph:
-                    if element.direction == 'horizontal':
-                        current_y += node_height + Inches(0.5)
-                    else:
-                        current_y += len(element.nodes) * (node_height + Inches(0.5)) + Inches(0.5)
+                    rendered_height = getattr(element, 'height_hint', None)
+                    if rendered_height is None:
+                        if element.direction == 'horizontal':
+                            rendered_height = node_height
+                        else:
+                            rendered_height = len(element.nodes) * (node_height + Inches(0.5))
+                    current_y += rendered_height + ELEMENT_GAP
 
             elif type(element).__name__ == 'Comparison':
                 num_cols = len(element.columns)
@@ -512,7 +572,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             p.font.name = theme.font_name
                             p.font.size = theme.size_body_small
                             
-                    if not ph: current_y += box_height + Inches(0.5)
+                    if not ph:
+                        rendered_height = getattr(element, 'height_hint', None)
+                        if rendered_height is None:
+                            rendered_height = (Inches(0.5) if element.title else 0) + box_height
+                        current_y += rendered_height + ELEMENT_GAP
             
             elif type(element).__name__ == 'Timeline':
                 start_x = ph.left if ph else content_x
@@ -555,7 +619,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                         p2.font.size = theme.size_body_small
                         p2.font.color.rgb = theme.color_text_light
                         
-                if not ph: current_y += len(element.events) * event_height + Inches(0.5)
+                if not ph:
+                    rendered_height = getattr(element, 'height_hint', None)
+                    if rendered_height is None:
+                        rendered_height = len(element.events) * event_height
+                    current_y += rendered_height + ELEMENT_GAP
 
             elif type(element).__name__ == 'CodeBlock':
                 start_x = ph.left if ph else content_x
@@ -588,7 +656,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 p.font.color.rgb = theme.color_text
                 p.alignment = PP_ALIGN.LEFT
                 
-                if not ph: current_y += box_height + Inches(0.5)
+                if not ph:
+                    rendered_height = getattr(element, 'height_hint', None)
+                    if rendered_height is None:
+                        rendered_height = (Inches(0.4) if getattr(element, 'caption', None) or getattr(element, 'language', None) else 0) + box_height
+                    current_y += rendered_height + ELEMENT_GAP
 
             elif type(element).__name__ == 'Tree':
                 start_x = ph.left if ph else content_x
@@ -621,7 +693,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                         render_tree_node(child, level + 1)
                         
                 render_tree_node(element.root, 0)
-                if not ph: current_y += box_height + Inches(0.5)
+                if not ph:
+                    rendered_height = getattr(element, 'height_hint', None)
+                    if rendered_height is None:
+                        rendered_height = box_height
+                    current_y += rendered_height + ELEMENT_GAP
 
 
             elif type(element).__name__ == 'Split':
@@ -657,7 +733,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                                 end_y = render_element(pe, px, end_y, panel_w, target_h - (py - target_y), None)
                         if end_y > max_bottom:
                             max_bottom = end_y
-                    if not ph: current_y = max_bottom + Inches(0.2)
+                    if not ph:
+                        rendered_height = getattr(element, 'height_hint', None)
+                        if rendered_height is None:
+                            rendered_height = max_bottom - target_y
+                        current_y += rendered_height + ELEMENT_GAP
                 else:
                     panel_w = target_w
                     panel_h = (target_h - (gap * (num_panels - 1))) / num_panels
@@ -679,23 +759,41 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             if pe_ph:
                                 render_element(pe, pe_ph.left, pe_ph.top, pe_ph.width, pe_ph.height, pe_ph)
                             else:
-                                adj_h = get_adjusted_height(panel.elements, idx_pe, panel_start_y + panel_h, py)
+                                adj_h = get_adjusted_height(panel.elements, idx_pe, panel_start_y + panel_h, py, panel_w)
                                 py = render_element(pe, px, py, panel_w, adj_h, None)
                         py = panel_start_y + panel_h + gap
-                    if not ph: current_y = py
+                    if not ph:
+                        rendered_height = getattr(element, 'height_hint', None)
+                        if rendered_height is None:
+                            rendered_height = py - target_y - gap
+                        current_y += rendered_height + ELEMENT_GAP
             return current_y
 
-        def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y):
+        def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, content_width):
+            """Estimate available height for elements_list[current_idx].
+
+            Text-like elements ahead are reserved using _estimate_element_height()
+            (the same logic used at render time) so image allocation is accurate.
+            """
             remaining_h = total_bottom_y - current_y
             if remaining_h < Inches(1): remaining_h = Inches(1)
-            
-            remaining_imgs = sum(1 for e in elements_list[current_idx:] if isinstance(e, (Image, Gallery, Split, Table)))
-            remaining_texts = sum(1 for e in elements_list[current_idx:] if isinstance(e, (Text, BulletList, CodeBlock)))
-            
-            reserved_text_h = remaining_texts * Inches(0.8)
+
+            # Reserve height for all text-like elements that come AFTER the current one.
+            future_elements = elements_list[current_idx + 1:]
+            reserved_text_h = sum(
+                _estimate_element_height(e, content_width) + ELEMENT_GAP
+                for e in future_elements
+                if isinstance(e, (Text, BulletList, CodeBlock))
+            )
+
+            remaining_imgs = sum(
+                1 for e in elements_list[current_idx:]
+                if isinstance(e, (Image, Gallery, Split, Table))
+            )
+
             available_img_h = remaining_h - reserved_text_h
             if available_img_h < Inches(1): available_img_h = Inches(1)
-            
+
             current_element = elements_list[current_idx]
             if isinstance(current_element, (Image, Gallery, Split, Table)) and remaining_imgs > 0:
                 return available_img_h / remaining_imgs
@@ -715,7 +813,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
         content_x = layout.content_x
         for idx_el, element in enumerate(slide_model.elements):
             ph = find_placeholder(getattr(element, "placeholder", None))
-            adj_h = layout.content_height if ph else get_adjusted_height(slide_model.elements, idx_el, layout.content_y + layout.content_height, current_y)
+            adj_h = layout.content_height if ph else get_adjusted_height(
+                slide_model.elements, idx_el,
+                layout.content_y + layout.content_height,
+                current_y, layout.content_width
+            )
             current_y = render_element(element, content_x, current_y, layout.content_width, adj_h, ph)
 
     output_path = Path(output_path)

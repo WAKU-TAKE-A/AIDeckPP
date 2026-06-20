@@ -5,6 +5,7 @@ from typing import List, Optional, Union
 class Text:
     content: str
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class ListItem:
@@ -15,18 +16,21 @@ class ListItem:
 class BulletList:
     items: List[Union[str, ListItem]]
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class Image:
     source: str
     caption: Optional[str] = None
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class Table:
     headers: List[str]
     rows: List[List[str]]
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class Gallery:
@@ -34,6 +38,7 @@ class Gallery:
     rows: Optional[int] = None
     columns: Optional[int] = None
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class FlowNode:
@@ -51,6 +56,7 @@ class Flow:
     nodes: List[FlowNode]
     edges: List[FlowEdge]
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class ComparisonColumn:
@@ -62,6 +68,7 @@ class Comparison:
     columns: List[ComparisonColumn]
     title: Optional[str] = None
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class TimelineEvent:
@@ -73,6 +80,7 @@ class TimelineEvent:
 class Timeline:
     events: List[TimelineEvent]
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class CodeBlock:
@@ -80,6 +88,7 @@ class CodeBlock:
     language: Optional[str] = None
     caption: Optional[str] = None
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class TreeNode:
@@ -90,6 +99,7 @@ class TreeNode:
 class Tree:
     root: TreeNode
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 @dataclass
 class Panel:
@@ -101,6 +111,7 @@ class Split:
     direction: str
     panels: List[Panel]
     placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
 
 Element = Union[Text, BulletList, Image, Table, Gallery, Flow, Comparison, Timeline, CodeBlock, Tree, Split]
 
