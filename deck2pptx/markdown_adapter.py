@@ -424,6 +424,11 @@ def load_markdown(file_path: str | Path) -> Deck:
                 
             # Comparison Block
             if line.startswith('```comparison'):
+                comp_title = None
+                title_match = re.search(r'title="([^"]+)"', line)
+                if title_match:
+                    comp_title = title_match.group(1)
+                
                 commit_text()
                 active_gallery = None
                 start_i = i
@@ -445,7 +450,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                 if current_col_label is not None:
                     columns.append(ComparisonColumn(label=current_col_label, items=current_col_items))
                 if columns:
-                    get_target_list().append(Comparison(columns=columns, placeholder=current_placeholder))
+                    get_target_list().append(Comparison(title=comp_title, columns=columns, placeholder=current_placeholder))
                 else:
                     from .models import CodeBlock
                     raw_code = '\n'.join(slide_lines[start_i:i+1])
