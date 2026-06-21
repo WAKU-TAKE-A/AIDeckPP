@@ -3,6 +3,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from ..render_context import SlideContext
 from ..height_estimator import ELEMENT_GAP
+from ..text_utils import count_rendered_lines
 
 def render(element, ctx: SlideContext, x, y, w, h) -> float:
     ph = ctx.find_placeholder(getattr(element, 'placeholder', None))
@@ -24,12 +25,28 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
         p.alignment = PP_ALIGN.CENTER
         start_y += Inches(0.5)
 
-    box_height = Inches(1.0)
+    calib_h = None
+    calib_cpi = None
+    if ctx.calibrated_metrics and ctx.theme.size_body in ctx.calibrated_metrics:
+        calib_h = ctx.calibrated_metrics[ctx.theme.size_body]['line_height']
+        calib_cpi = ctx.calibrated_metrics[ctx.theme.size_body]['chars_per_inch']
+    
+    col_width_inches = col_width / 914400.0
+    chars_per_line = max(1, int(col_width_inches * calib_cpi)) if calib_cpi else 30
+    line_height = calib_h if calib_h else Inches(0.35)
+
+    max_lines = 0
+    for col in element.columns:
+        lines = 1
+        for item in col.items:
+            lines += count_rendered_lines(item, chars_per_line)
+        if lines > max_lines:
+            max_lines = lines
+            
+    box_height = max_lines * line_height + Inches(0.1)
+
     for i, col in enumerate(element.columns):
         col_x = start_x + (i * col_width)
-        
-        max_items = max((len(c.items) for c in element.columns), default=0)
-        box_height = Inches(max(1.0, (1 + max_items) * 0.25 + 0.2))
         
         tb = ctx.slide.shapes.add_textbox(col_x, start_y, col_width, box_height)
         tf = tb.text_frame

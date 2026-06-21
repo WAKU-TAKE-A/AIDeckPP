@@ -1,5 +1,6 @@
 from pptx.util import Inches
-from .models import Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock, Mermaid, Tree
+from .models import Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock, Mermaid, Tree, Comparison, Timeline
+from .text_utils import count_rendered_lines
 
 ELEMENT_GAP = Inches(0.15)          # uniform gap between consecutive elements
 _TEXT_LINE_HEIGHT = Inches(0.35)    # estimated height per wrapped line of body text
@@ -91,7 +92,37 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
         vertical_gap = Inches(0.15)
         return max(Inches(1.0), leaf_count * node_height + (leaf_count - 1) * vertical_gap)
 
-    # Image, Gallery, Table, Flow, Comparison, Timeline, Split:
+    if isinstance(element, Timeline):
+        return len(element.events) * Inches(0.8)
+
+    if isinstance(element, Comparison):
+        num_cols = len(element.columns)
+        if num_cols == 0:
+            return Inches(1.0)
+        col_width_inches = (content_width / 914400.0 if content_width else 10.0) / num_cols
+        
+        calib_h = None
+        calib_cpi = None
+        body_font_size = theme.size_body if theme else 18
+        if calibrated_metrics and body_font_size in calibrated_metrics:
+            calib_h = calibrated_metrics[body_font_size]['line_height']
+            calib_cpi = calibrated_metrics[body_font_size]['chars_per_inch']
+        
+        chars_per_line = max(1, int(col_width_inches * calib_cpi)) if calib_cpi else 30
+        line_height = calib_h if calib_h else _TEXT_LINE_HEIGHT
+
+        max_lines = 0
+        for col in element.columns:
+            lines = 1  # for the label
+            for item in col.items:
+                lines += count_rendered_lines(item, chars_per_line)
+            if lines > max_lines:
+                max_lines = lines
+                
+        title_h = Inches(0.5) if element.title else 0
+        return title_h + (max_lines * line_height) + Inches(0.1)
+
+    # Image, Gallery, Table, Flow, Split:
     # height depends on runtime data — caller handles these separately.
     return Inches(1.0)
 
@@ -108,7 +139,9 @@ def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, c
     reserved_text_h = sum(
         _estimate_element_height(e, content_width, calibrated_metrics, theme, level_fonts) + ELEMENT_GAP
         for e in future_elements
-        if isinstance(e, (Text, BulletList, CodeBlock)) or (isinstance(e, Mermaid) and not has_mmdc)
+        if getattr(e, 'placeholder', None) is None and (
+            isinstance(e, (Text, BulletList, CodeBlock, Tree, Comparison, Timeline)) or (isinstance(e, Mermaid) and not has_mmdc)
+        )
     )
 
     remaining_imgs = sum(
