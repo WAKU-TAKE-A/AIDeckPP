@@ -14,7 +14,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
                 p = tb.text_frame.paragraphs[0]
                 p.text = element.caption
                 p.font.name = ctx.theme.font_name
-                p.font.size = Pt(12)
+                p.font.size = ctx.theme.size_body_extra_small
                 p.alignment = PP_ALIGN.CENTER
                 p.font.color.rgb = ctx.theme.color_text_light
             return y
@@ -43,7 +43,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
                 p = tb.text_frame.paragraphs[0]
                 p.text = element.caption
                 p.font.name = ctx.theme.font_name
-                p.font.size = Pt(12)
+                p.font.size = ctx.theme.size_body_extra_small
                 p.alignment = PP_ALIGN.CENTER
                 p.font.color.rgb = ctx.theme.color_text_light
                 
@@ -112,7 +112,7 @@ def render_gallery(element, ctx: SlideContext, x, y, w, h) -> float:
                 p = tb.text_frame.paragraphs[0]
                 p.text = img.caption
                 p.font.name = ctx.theme.font_name
-                p.font.size = Pt(12)
+                p.font.size = ctx.theme.size_body_extra_small
                 p.alignment = PP_ALIGN.CENTER
                 p.font.color.rgb = ctx.theme.color_text_light
         except Exception as e:

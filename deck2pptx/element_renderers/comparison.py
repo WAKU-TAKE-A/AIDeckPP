@@ -20,7 +20,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
         p = tb.text_frame.paragraphs[0]
         p.text = element.title
         p.font.name = ctx.theme.font_name
-        p.font.size = ctx.theme.size_body
+        p.font.size = ctx.theme.size_title
         p.font.bold = True
         p.alignment = PP_ALIGN.CENTER
         start_y += Inches(0.5)
@@ -64,7 +64,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
             p.text = item
             p.level = 1
             p.font.name = ctx.theme.font_name
-            p.font.size = ctx.theme.size_body_small
+            p.font.size = ctx.theme.size_body_semi_small
             
     if not ph:
         rendered_height = getattr(element, 'height_hint', None)
@@ -88,7 +88,7 @@ def render_timeline(element, ctx: SlideContext, x, y, w, h) -> float:
         p = tb.text_frame.paragraphs[0]
         p.text = ev.label
         p.font.name = ctx.theme.font_name
-        p.font.size = ctx.theme.size_body
+        p.font.size = ctx.theme.size_title
         p.font.bold = True
         p.font.color.rgb = ctx.theme.color_flow_line
         
@@ -112,7 +112,7 @@ def render_timeline(element, ctx: SlideContext, x, y, w, h) -> float:
             p2 = tf.add_paragraph()
             p2.text = ev.description
             p2.font.name = ctx.theme.font_name
-            p2.font.size = ctx.theme.size_body_small
+            p2.font.size = ctx.theme.size_body_semi_small
             p2.font.color.rgb = ctx.theme.color_text_light
             
     if not ph:

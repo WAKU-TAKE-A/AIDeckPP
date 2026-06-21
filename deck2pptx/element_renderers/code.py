@@ -15,7 +15,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
         p = tb.text_frame.paragraphs[0]
         p.text = element.caption if element.caption else f"Language: {element.language}"
         p.font.name = ctx.theme.font_name
-        p.font.size = ctx.theme.size_body_small
+        p.font.size = ctx.theme.size_body_semi_small
         p.font.italic = True
         start_y += Inches(0.4)
     
@@ -32,7 +32,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
     p = tf.paragraphs[0]
     p.text = element.code
     p.font.name = "Consolas"
-    p.font.size = Pt(14)
+    p.font.size = ctx.theme.size_body_small
     p.font.color.rgb = ctx.theme.color_text
     p.alignment = PP_ALIGN.LEFT
     
