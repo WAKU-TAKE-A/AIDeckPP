@@ -12,7 +12,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
         target_x = ph.left if ph else x
         target_y = ph.top if ph else y
         target_w = ph.width if ph else w
-        rendered_height = _estimate_element_height(element, target_w)
+        rendered_height = _estimate_element_height(element, target_w, ctx.calibrated_metrics, ctx.theme, ctx.level_fonts)
         txBox = ctx.slide.shapes.add_textbox(target_x, target_y, target_w, rendered_height)
         tf = txBox.text_frame
         tf.word_wrap = True
@@ -20,7 +20,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
             tf,
             element.content,
             font_name=ctx.theme.font_name,
-            font_size=Pt(ctx.deck.font_size_l0) if ctx.deck.font_size_l0 else ctx.theme.size_body,
+            font_size=Pt(ctx.level_fonts[0]) if 0 in ctx.level_fonts else ctx.theme.size_body,
             font_color=ctx.theme.color_text,
         )
         if not ph:
@@ -42,12 +42,7 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
             p.text = text
             if level > 0: p.level = level
             
-            font_size = None
-            if level == 0 and ctx.deck.font_size_l0: font_size = ctx.deck.font_size_l0
-            elif level == 1 and ctx.deck.font_size_l1: font_size = ctx.deck.font_size_l1
-            elif level == 2 and ctx.deck.font_size_l2: font_size = ctx.deck.font_size_l2
-            elif level == 3 and ctx.deck.font_size_l3: font_size = ctx.deck.font_size_l3
-            elif level >= 4 and ctx.deck.font_size_l4: font_size = ctx.deck.font_size_l4
+            font_size = ctx.level_fonts.get(level)
             
             if font_size:
                 p.font.size = Pt(font_size)
@@ -56,7 +51,7 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
         target_x = ph.left if ph else x
         target_y = ph.top if ph else y
         target_w = ph.width if ph else w
-        rendered_height = _estimate_element_height(element, target_w)
+        rendered_height = _estimate_element_height(element, target_w, ctx.calibrated_metrics, ctx.theme, ctx.level_fonts)
         txBox = ctx.slide.shapes.add_textbox(target_x, target_y, target_w, rendered_height)
         tf = txBox.text_frame
         tf.word_wrap = True
@@ -70,12 +65,7 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
             if level > 0: p.level = level
             p.font.name = ctx.theme.font_name
             
-            font_size = None
-            if level == 0 and ctx.deck.font_size_l0: font_size = ctx.deck.font_size_l0
-            elif level == 1 and ctx.deck.font_size_l1: font_size = ctx.deck.font_size_l1
-            elif level == 2 and ctx.deck.font_size_l2: font_size = ctx.deck.font_size_l2
-            elif level == 3 and ctx.deck.font_size_l3: font_size = ctx.deck.font_size_l3
-            elif level >= 4 and ctx.deck.font_size_l4: font_size = ctx.deck.font_size_l4
+            font_size = ctx.level_fonts.get(level)
             
             p.font.size = Pt(font_size) if font_size else (ctx.theme.size_body if level == 0 else ctx.theme.size_body_small)
             p.font.color.rgb = ctx.theme.color_text

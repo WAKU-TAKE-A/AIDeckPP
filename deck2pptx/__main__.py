@@ -58,7 +58,7 @@ def build_cmd(args):
     try:
         deck = load_deck(args.input_file, format=args.format)
         validate_deck(deck, Path(args.input_file).parent)
-        render_deck(deck, args.output_file, base_dir=Path(args.input_file).parent, template_path=getattr(args, 'template', None))
+        render_deck(deck, args.output_file, base_dir=Path(args.input_file).parent, template_path=getattr(args, 'template', None), calib_first_slide=getattr(args, 'calib_first_slide', False))
         print(f"Built PPTX successfully to {args.output_file}")
     except Exception as e:
         print(f"Build failed: {e}", file=sys.stderr)
@@ -103,6 +103,7 @@ def main():
     p_build.add_argument('output_file', help="Path to output PPTX file")
     p_build.add_argument('--template', help="Path to PPTX template file to use for rendering", default=None)
     p_build.add_argument('--input-format', dest="format", help="Force input format (yaml or markdown)", default=None)
+    p_build.add_argument('--calib-first-slide', action='store_true', help="Use the first slide of the template for font height/width calibration")
     p_build.set_defaults(func=build_cmd)
     
     args = parser.parse_args()

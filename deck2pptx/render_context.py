@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
 from .theme import Theme
@@ -13,3 +13,5 @@ class SlideContext:
     base_dir: Path
     layout: Layout
     find_placeholder: Callable[[Optional[str]], Any]
+    calibrated_metrics: dict = field(default_factory=dict)
+    level_fonts: dict = field(default_factory=dict)

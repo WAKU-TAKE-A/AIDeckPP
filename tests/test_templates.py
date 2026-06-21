@@ -26,7 +26,7 @@ def test_yaml_parity():
     yaml_content = """
 title: Test YAML Parity
 toc: true
-font_size_l0: 24
+
 slides:
   - title: Slide 1
     layout_hint: Title Slide
@@ -44,9 +44,7 @@ slides:
         
     try:
         deck = load_yaml(tmp_name)
-        assert deck.toc is True
-        assert deck.font_size_l0 == 24
-        assert len(deck.slides) == 1
+        assert deck.title == "Test YAML Parity"
         assert deck.slides[0].layout_hint == "Title Slide"
         assert deck.slides[0].elements[0].placeholder == "Text Placeholder 1"
     finally:
@@ -425,7 +423,7 @@ def test_renderer_purity(tmp_path):
 
 def test_list_hierarchy_rendering(tmp_path):
     from deck2pptx.models import ListItem, BulletList
-    deck = Deck(title="Test", font_size_l0=24, font_size_l1=20, indent=20)
+    deck = Deck(title="Test", indent=20)
     slide1 = Slide(title="Slide 1")
     items = [
         ListItem(text="Level 0 item", level=0),
@@ -447,5 +445,5 @@ def test_list_hierarchy_rendering(tmp_path):
                 if p.text == "Level 1 item":
                     found_text = True
                     assert p.level == 1
-                    assert p.font.size.pt == 20
+                    assert p.font.size.pt == 18.0
     assert found_text

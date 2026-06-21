@@ -27,13 +27,47 @@ def _name_equals(actual_name: str, requested_name: str) -> bool:
 
 
 
-def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), template_path: str = None):
+def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), template_path: str = None, calib_first_slide: bool = False):
+    calibrated_metrics = {}
     # Initialize Presentation
     if template_path:
         prs = Presentation(template_path)
+        
+        # Calibration Extraction
+        if calib_first_slide and len(prs.slides) > 0:
+            calib_slide = prs.slides[0]
+            for shape in calib_slide.shapes:
+                if shape.has_text_frame:
+                    text = shape.text
+                    lines = text.count('\n') + 1
+                    if lines >= 2:
+                        font_size_pt = None
+                        for p in shape.text_frame.paragraphs:
+                            for run in p.runs:
+                                if run.font.size:
+                                    font_size_pt = run.font.size.pt
+                                    break
+                            if font_size_pt: break
+                        
+                        if font_size_pt:
+                            height_per_line = shape.height / lines
+                            first_para_text = shape.text_frame.paragraphs[0].text
+                            cpi = len(first_para_text) / (shape.width / 914400.0) if shape.width else 60.0 / 6.0
+                            calibrated_metrics[font_size_pt] = {
+                                'height': height_per_line,
+                                'cpi': cpi
+                            }
+                            
+        level_fonts = {}
+        if calibrated_metrics:
+            sorted_fonts = sorted(calibrated_metrics.keys(), reverse=True)
+            for i, fs in enumerate(sorted_fonts):
+                level_fonts[i] = fs
+
         _remove_existing_slides(prs)
     else:
         prs = Presentation()
+        level_fonts = {}
     
     base_dir = Path(base_dir)
     theme = Theme(deck.theme)
@@ -166,7 +200,9 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             deck=deck,
             base_dir=base_dir,
             layout=layout,
-            find_placeholder=find_placeholder
+            find_placeholder=find_placeholder,
+            calibrated_metrics=calibrated_metrics,
+            level_fonts=level_fonts
         )
 
         align_val = getattr(slide_model, 'content_align', None) or getattr(deck, 'content_align', None)

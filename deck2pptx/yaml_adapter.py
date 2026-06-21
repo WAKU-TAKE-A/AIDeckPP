@@ -13,11 +13,6 @@ def load_yaml(file_path: str | Path) -> Deck:
         toc=data.get('toc', False),
         toc_title=data.get('toc_title'),
         indent=data.get('indent'),
-        font_size_l0=data.get('font_size_l0'),
-        font_size_l1=data.get('font_size_l1'),
-        font_size_l2=data.get('font_size_l2'),
-        font_size_l3=data.get('font_size_l3'),
-        font_size_l4=data.get('font_size_l4'),
         content_align=data.get('content_align')
     )
     for slide_data in data.get('slides', []):

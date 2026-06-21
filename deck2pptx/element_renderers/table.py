@@ -26,7 +26,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
             cell_obj.text = str(cell)
             for p in cell_obj.text_frame.paragraphs:
                 p.font.name = ctx.theme.font_name
-                p.font.size = Pt(ctx.deck.font_size_l1) if ctx.deck.font_size_l1 else ctx.theme.size_body_small
+                p.font.size = Pt(ctx.level_fonts[1]) if 1 in ctx.level_fonts else ctx.theme.size_body_small
             
     if not ph:
         rendered_height = getattr(element, 'height_hint', None)

@@ -119,7 +119,7 @@ You can control the overall deck typography and structure using YAML front matte
 - `toc`: Set to `true` to automatically generate a Table of Contents slide.
 - `toc_title`: Override the default "Table of Contents" title.
 - `indent`: Controls list hierarchy mapping in Markdown. How many spaces equal one list level (default: 2).
-- `font_size_l0` to `font_size_l4`: Override font sizes for text levels (e.g., `font_size_l0: 24`). These propagate to bullet lists, text boxes, and tables.
+
 
 For images, use paths relative to the input file location.
 

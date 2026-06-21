@@ -8,12 +8,8 @@ def get_spec() -> dict:
             "theme": "Theme name, e.g. 'default'.",
             "toc": "Generate table of contents slide automatically (boolean).",
             "toc_title": "Custom TOC slide title (string).",
-            "indent": "List indentation mapping for Markdown parsing. Specifies how many spaces equal one list level (integer).",
-            "font_size_l0": "Font size for level 0 text (integer). Overrides theme defaults.",
-            "font_size_l1": "Font size for level 1 text (integer). Overrides theme defaults.",
-            "font_size_l2": "Font size for level 2 text (integer). Overrides theme defaults.",
-            "font_size_l3": "Font size for level 3 text (integer). Overrides theme defaults.",
-            "font_size_l4": "Font size for level 4 text (integer). Overrides theme defaults."
+            "indent": "Indentation size for lists in points (integer). Default is 40.",
+            "content_align": "Vertical alignment of slide content. Enum: ['top', 'semi-top', 'center', 'semi-bottom', 'bottom']."
         },
         "slide_metadata": {
             "title": "Slide title (string).",

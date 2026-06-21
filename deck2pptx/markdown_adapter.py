@@ -18,14 +18,12 @@ def load_markdown(file_path: str | Path) -> Deck:
                 deck.title = fm.get('title')
                 deck.orientation = fm.get('orientation', 'landscape')
                 deck.theme = fm.get('theme', 'default')
-                deck.toc = fm.get('toc', False)
-                deck.toc_title = fm.get('toc_title')
-                deck.indent = fm.get('indent')
-                deck.font_size_l0 = fm.get('font_size_l0')
-                deck.font_size_l1 = fm.get('font_size_l1')
-                deck.font_size_l2 = fm.get('font_size_l2')
-                deck.font_size_l3 = fm.get('font_size_l3')
-                deck.font_size_l4 = fm.get('font_size_l4')
+                if 'toc' in fm:
+                    deck.toc = bool(fm['toc'])
+                if 'toc_title' in fm:
+                    deck.toc_title = fm['toc_title']
+                if 'indent' in fm:
+                    deck.indent = fm['indent']
                 deck.content_align = fm.get('content_align')
             except:
                 pass

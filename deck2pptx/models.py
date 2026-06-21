@@ -138,10 +138,5 @@ class Deck:
     toc: bool = False
     toc_title: Optional[str] = None
     indent: Optional[int] = None
-    font_size_l0: Optional[int] = None
-    font_size_l1: Optional[int] = None
-    font_size_l2: Optional[int] = None
-    font_size_l3: Optional[int] = None
-    font_size_l4: Optional[int] = None
     content_align: Optional[str] = None
     slides: List[Slide] = field(default_factory=list)
