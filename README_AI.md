@@ -45,7 +45,8 @@ Markdown uses HTML comments for slide controls and structure. Multiple commands 
 |---|---|---|
 | `layout` | `l` | `<!-- l "Title&Body" -->` |
 | `subtitle` | `sub` | `<!-- sub "My Subtitle" -->` |
-| `placeholder` | `ph`, `place` | `<!-- ph "Body" -->` |
+| `placeholder` | `ph`, `place` | `<!-- ph "Body" -->` or `<!-- ph "Footer" "Hidden Text" -->` |
+| `value` | `v` | `<!-- ph "Footer"; v "Hidden Text" -->` |
 | `newpage` | `new`, `new_page` | `<!-- newpage "LayoutName" -->` |
 | `align` | `content_align`, `valign` | `<!-- align "top" -->` |
 | `gallery` | `gal` | `<!-- gallery 3 -->` |
@@ -53,6 +54,7 @@ Markdown uses HTML comments for slide controls and structure. Multiple commands 
 | `panel` | — | `<!-- panel "Title" -->` |
 | `/split` | — | `<!-- /split -->` |
 
+- **Hidden text injection**: You can inject text into placeholders without it appearing in the Markdown preview. Pass a second argument to `ph` or use the `v` command. `\n` or `<br>` are converted to newlines. Example: `<!-- ph "Footer" "Line 1\nLine 2" -->`
 - **Slide logic**: `#`, `##`, `###` headings start new slides. `####` and deeper stay in the slide body.
 - **Alignment values**: `top`, `semi-top`, `normal`, `semi-bottom`, `bottom`.
 - **Split/Panel**: Use `<!-- split h -->` or `<!-- split v -->` to create multi-panel regions. Nested splits are not supported. The `style` property and weighted panel rendering are future work and NOT implemented.
