@@ -1,4 +1,11 @@
-from pptx.util import Inches
+import subprocess
+import tempfile
+import shutil
+from pathlib import Path
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.enum.text import MSO_AUTO_SIZE
+
 from .models import Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock, Mermaid, Tree, Comparison, Timeline
 from .text_utils import count_rendered_lines
 
@@ -28,7 +35,7 @@ def _get_calibrated_metrics(fs, calibrated_metrics):
     ratio = fs / closest_fs
     return ref['height'] * ratio, ref['cpi'] * (1.0 / ratio)
 
-def _estimate_element_height(element, content_width, calibrated_metrics=None, theme=None, level_fonts=None):
+def _estimate_element_height(element, content_width, calibrated_metrics=None, theme=None, level_fonts=None, calibrated_heights=None):
     """Return estimated rendered height (EMU) for an element."""
     if getattr(element, 'height_hint', None) is not None:
         return element.height_hint
@@ -36,11 +43,19 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
     if isinstance(element, Text):
         fs = _get_font_size(level_fonts, theme, 0)
         calib_h, calib_cpi = _get_calibrated_metrics(fs, calibrated_metrics)
-        if calib_h and calib_cpi:
-            width_inches = content_width / 914400.0 if content_width else 10.0
-            chars_per_line = max(1, int(width_inches * calib_cpi))
+        
+        line_height = calibrated_heights.get(0) if calibrated_heights else None
+        if not line_height and calib_h:
+            line_height = calib_h
+            
+        if line_height:
+            if calib_cpi:
+                width_inches = content_width / 914400.0 if content_width else 10.0
+                chars_per_line = max(1, int(width_inches * calib_cpi))
+            else:
+                chars_per_line = 60
             estimated_lines = element.content.count('\n') + 1 + len(element.content) // chars_per_line
-            return max(_TEXT_MIN_HEIGHT, estimated_lines * calib_h + Inches(0.1))
+            return max(_TEXT_MIN_HEIGHT, estimated_lines * line_height + Inches(0.1))
         else:
             estimated_lines = element.content.count('\n') + 1 + len(element.content) // 60
             return max(_TEXT_MIN_HEIGHT, estimated_lines * _TEXT_LINE_HEIGHT)
@@ -48,20 +63,27 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
     if isinstance(element, BulletList):
         from .models import ListItem
         total_h = 0
-        has_calib = bool(calibrated_metrics)
+        has_calib = bool(calibrated_metrics) or bool(calibrated_heights)
         for item in element.items:
             lvl = item.level if isinstance(item, ListItem) else 0
             text = item.text if isinstance(item, ListItem) else str(item)
             fs = _get_font_size(level_fonts, theme, lvl)
             calib_h, calib_cpi = _get_calibrated_metrics(fs, calibrated_metrics)
             
-            if calib_h and calib_cpi:
-                width_inches = content_width / 914400.0 if content_width else 10.0
-                indent_inches = 0.2 + (lvl * 0.2)
-                avail_width = max(1.0, width_inches - indent_inches)
-                chars_per_line = max(1, int(avail_width * calib_cpi))
+            line_height = calibrated_heights.get(lvl) if calibrated_heights else None
+            if not line_height and calib_h:
+                line_height = calib_h
+
+            if line_height:
+                if calib_cpi:
+                    width_inches = content_width / 914400.0 if content_width else 10.0
+                    indent_inches = 0.2 + (lvl * 0.2)
+                    avail_width = max(1.0, width_inches - indent_inches)
+                    chars_per_line = max(1, int(avail_width * calib_cpi))
+                else:
+                    chars_per_line = 50
                 lines = text.count('\n') + 1 + len(text) // chars_per_line
-                total_h += lines * calib_h
+                total_h += lines * line_height
             else:
                 weight = 1.0 if lvl == 0 else 0.8
                 total_h += weight * _BULLET_LINE_HEIGHT
@@ -126,7 +148,7 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
     # height depends on runtime data — caller handles these separately.
     return Inches(1.0)
 
-def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, content_width, calibrated_metrics=None, theme=None, level_fonts=None):
+def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, content_width, calibrated_metrics=None, theme=None, level_fonts=None, calibrated_heights=None):
     """Estimate available height for elements_list[current_idx]."""
     remaining_h = total_bottom_y - current_y
     if remaining_h < Inches(1): remaining_h = Inches(1)
@@ -137,7 +159,7 @@ def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, c
     # Reserve height for all text-like elements that come AFTER the current one.
     future_elements = elements_list[current_idx + 1:]
     reserved_text_h = sum(
-        _estimate_element_height(e, content_width, calibrated_metrics, theme, level_fonts) + ELEMENT_GAP
+        _estimate_element_height(e, content_width, calibrated_metrics, theme, level_fonts, calibrated_heights) + ELEMENT_GAP
         for e in future_elements
         if getattr(e, 'placeholder', None) is None and (
             isinstance(e, (Text, BulletList, CodeBlock, Tree, Comparison, Timeline)) or (isinstance(e, Mermaid) and not has_mmdc)
@@ -157,3 +179,68 @@ def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, c
         return available_img_h / remaining_imgs
     else:
         return remaining_h
+
+def calibrate_line_heights(deck, theme):
+    soffice_cmd = None
+    if shutil.which("soffice"):
+        soffice_cmd = "soffice"
+    else:
+        win_path = r"C:\Program Files\LibreOffice\program\soffice.exe"
+        if Path(win_path).exists():
+            soffice_cmd = win_path
+    
+    if not soffice_cmd:
+        return {}
+
+    prs = Presentation()
+    blank_layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
+    slide = prs.slides.add_slide(blank_layout)
+
+    default_sizes = [24, 20, 18, 16, 14]
+    
+    for level in range(5):
+        fs = getattr(deck, f"font_size_l{level}", None)
+        if fs is None:
+            fs = default_sizes[level]
+        
+        txBox = slide.shapes.add_textbox(Inches(0), Inches(level * 1.5), Inches(20), Inches(1))
+        tf = txBox.text_frame
+        tf.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
+        tf.word_wrap = False
+        
+        lines_text = "\n".join([f"Line {i+1}" for i in range(10)])
+        tf.text = lines_text
+        
+        for p in tf.paragraphs:
+            p.font.name = theme.font_name if theme and theme.font_name else "Arial"
+            p.font.size = Pt(fs)
+
+    temp_dir = tempfile.mkdtemp()
+    try:
+        input_pptx = Path(temp_dir) / "calib_input.pptx"
+        prs.save(str(input_pptx))
+        
+        output_temp_dir = Path(tempfile.mkdtemp())
+        try:
+            subprocess.run([soffice_cmd, "--headless", "--convert-to", "pptx", str(input_pptx), "--outdir", str(output_temp_dir)], check=True, capture_output=True)
+            output_pptx = output_temp_dir / "calib_input.pptx"
+            if not output_pptx.exists():
+                return {}
+            
+            prs_out = Presentation(str(output_pptx))
+            slide_out = prs_out.slides[0]
+            
+            result = {}
+            for level, shape in enumerate(slide_out.shapes):
+                if shape.height == Inches(1):
+                    return {}
+                result[level] = shape.height / 10.0
+                
+            return result
+        finally:
+            shutil.rmtree(output_temp_dir, ignore_errors=True)
+    except Exception as e:
+        print(f"Calibration error: {e}")
+        return {}
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)

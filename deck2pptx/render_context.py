@@ -15,3 +15,4 @@ class SlideContext:
     find_placeholder: Callable[[Optional[str]], Any]
     calibrated_metrics: dict = field(default_factory=dict)
     level_fonts: dict = field(default_factory=dict)
+    calibrated_heights: dict = field(default_factory=dict)

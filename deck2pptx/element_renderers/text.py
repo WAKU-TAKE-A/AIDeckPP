@@ -12,7 +12,9 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
         target_x = ph.left if ph else x
         target_y = ph.top if ph else y
         target_w = ph.width if ph else w
-        rendered_height = _estimate_element_height(element, target_w, ctx.calibrated_metrics, ctx.theme, ctx.level_fonts)
+        rendered_height = _estimate_element_height(element, target_w, ctx.calibrated_metrics, ctx.theme, ctx.level_fonts, ctx.calibrated_heights)
+        if hasattr(element, 'content') and '棚は万なり' in element.content:
+            print(f"DEBUG: '棚は万なり' text.render rendered_height = {rendered_height / 914400.0} inches")
         txBox = ctx.slide.shapes.add_textbox(target_x, target_y, target_w, rendered_height)
         tf = txBox.text_frame
         tf.word_wrap = True
@@ -51,7 +53,7 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
         target_x = ph.left if ph else x
         target_y = ph.top if ph else y
         target_w = ph.width if ph else w
-        rendered_height = _estimate_element_height(element, target_w, ctx.calibrated_metrics, ctx.theme, ctx.level_fonts)
+        rendered_height = _estimate_element_height(element, target_w, ctx.calibrated_metrics, ctx.theme, ctx.level_fonts, ctx.calibrated_heights)
         txBox = ctx.slide.shapes.add_textbox(target_x, target_y, target_w, rendered_height)
         tf = txBox.text_frame
         tf.word_wrap = True

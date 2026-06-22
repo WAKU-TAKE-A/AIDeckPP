@@ -53,7 +53,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                             # Calculate actual line height based on font size (approx 1.2x)
                             # 1 pt = 12700 EMU. 12700 * 1.2 = 15240
                             height_per_line = int(font_size_pt * 15240)
-                            first_para_text = shape.text_frame.paragraphs[0].text
+                            first_para_text = shape.text_frame.paragraphs[0].text.split('\x0b')[0]
                             cpi = len(first_para_text) / (shape.width / 914400.0) if shape.width else 60.0 / 6.0
                             calibrated_metrics[font_size_pt] = {
                                 'height': height_per_line,
@@ -73,6 +73,9 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
     
     base_dir = Path(base_dir)
     theme = Theme(deck.theme)
+    
+    from .height_estimator import calibrate_line_heights
+    calibrated_heights = calibrate_line_heights(deck, theme)
     
     # Set slide dimensions (only when no template; templates keep their own size)
     if not template_path:
@@ -204,7 +207,8 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             layout=layout,
             find_placeholder=find_placeholder,
             calibrated_metrics=calibrated_metrics,
-            level_fonts=level_fonts
+            level_fonts=level_fonts,
+            calibrated_heights=calibrated_heights
         )
 
         align_val = getattr(slide_model, 'content_align', None) or getattr(deck, 'content_align', None)
@@ -223,7 +227,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             adj_h = layout.content_height if ph else get_adjusted_height(
                 slide_model.elements, idx_el,
                 layout.content_y + layout.content_height,
-                current_y, layout.content_width
+                current_y, layout.content_width,
+                calibrated_metrics=calibrated_metrics,
+                theme=theme,
+                level_fonts=level_fonts,
+                calibrated_heights=calibrated_heights
             )
             current_y = render_element(element, ctx, content_x, current_y, layout.content_width, adj_h)
 
