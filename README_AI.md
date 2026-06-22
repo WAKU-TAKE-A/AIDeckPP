@@ -23,7 +23,7 @@ The `Deck` model is canonical.
   - `Image`: `![alt](path)` (automatically preserves alt text as a caption)
   - `Gallery`: explicit grid layout of multiple images using `<!-- gallery [cols] -->` (e.g. `<!-- gallery 3 -->`).
   - `Flow`: simple flowchart (` ```flow `)
-  - `Comparison`: ` ```comparison ` block with columns labeled by `Label:` and `- item` lists
+  - `Comparison`: ` ```comparison title="Title" ` block with columns labeled by `Label:` and `- item` lists (title is optional)
   - `Timeline`: ` ```timeline ` block with `Date: Title - Description`
   - `CodeBlock`: ` ```code python ` block for source code
   - `Mermaid`: ` ```mermaid ` block for advanced flowcharts and diagrams
