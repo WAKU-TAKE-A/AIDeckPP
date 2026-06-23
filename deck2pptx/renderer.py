@@ -2,6 +2,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
 from pathlib import Path
+import re
 from .models import Deck, Slide, BulletList
 from .layout import Layout, get_slide_layout_type
 from .theme import Theme
@@ -29,36 +30,24 @@ def _name_equals(actual_name: str, requested_name: str) -> bool:
 
 def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), template_path: str = None, calib_first_slide: bool = False):
     calibrated_metrics = {}
+    title_metrics = None
     # Initialize Presentation
     if template_path:
         prs = Presentation(template_path)
         
         # Calibration Extraction
-        if calib_first_slide and len(prs.slides) > 0:
+        do_calib = calib_first_slide
+        if not do_calib and len(prs.slides) > 0:
             calib_slide = prs.slides[0]
-            for shape in calib_slide.shapes:
-                if shape.has_text_frame:
-                    text = shape.text
-                    lines = text.count('\n') + text.count('\x0b') + 1
-                    if lines >= 2:
-                        font_size_pt = None
-                        for p in shape.text_frame.paragraphs:
-                            for run in p.runs:
-                                if run.font.size:
-                                    font_size_pt = run.font.size.pt
-                                    break
-                            if font_size_pt: break
-                        
-                        if font_size_pt:
-                            # Calculate actual line height based on font size (approx 1.2x)
-                            # 1 pt = 12700 EMU. 12700 * 1.2 = 15240
-                            height_per_line = int(font_size_pt * 15240)
-                            first_para_text = shape.text_frame.paragraphs[0].text.split('\x0b')[0]
-                            cpi = len(first_para_text) / (shape.width / 914400.0) if shape.width else 60.0 / 6.0
-                            calibrated_metrics[font_size_pt] = {
-                                'height': height_per_line,
-                                'cpi': cpi
-                            }
+            if calib_slide.shapes.title and calib_slide.shapes.title.has_text_frame:
+                title_text = calib_slide.shapes.title.text.strip().lower()
+                if title_text == "calibration" or re.match(r"^キャリ.ブレーション$", title_text):
+                    do_calib = True
+                    
+        if do_calib and len(prs.slides) > 0:
+            calib_slide = prs.slides[0]
+            from .height_estimator import extract_template_metrics
+            calibrated_metrics, title_metrics = extract_template_metrics(calib_slide)
                             
         level_fonts = {}
         if calibrated_metrics:
@@ -86,7 +75,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             prs.slide_width = Inches(13.333)
             prs.slide_height = Inches(7.5)
         
-    layout = Layout(prs.slide_width, prs.slide_height)
+    layout = Layout(prs.slide_width, prs.slide_height, title_metrics=title_metrics)
     
     render_slides = list(deck.slides)
     

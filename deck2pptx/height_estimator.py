@@ -44,9 +44,9 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
         fs = _get_font_size(level_fonts, theme, 0)
         calib_h, calib_cpi = _get_calibrated_metrics(fs, calibrated_metrics)
         
-        line_height = calibrated_heights.get(0) if calibrated_heights else None
-        if not line_height and calib_h:
-            line_height = calib_h
+        line_height = calib_h
+        if not line_height and calibrated_heights:
+            line_height = calibrated_heights.get(0)
             
         if line_height:
             if calib_cpi:
@@ -70,9 +70,9 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
             fs = _get_font_size(level_fonts, theme, lvl)
             calib_h, calib_cpi = _get_calibrated_metrics(fs, calibrated_metrics)
             
-            line_height = calibrated_heights.get(lvl) if calibrated_heights else None
-            if not line_height and calib_h:
-                line_height = calib_h
+            line_height = calib_h
+            if not line_height and calibrated_heights:
+                line_height = calibrated_heights.get(lvl)
 
             if line_height:
                 if calib_cpi:
@@ -127,8 +127,8 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
         calib_cpi = None
         body_font_size = theme.size_body if theme else 18
         if calibrated_metrics and body_font_size in calibrated_metrics:
-            calib_h = calibrated_metrics[body_font_size]['line_height']
-            calib_cpi = calibrated_metrics[body_font_size]['chars_per_inch']
+            calib_h = calibrated_metrics[body_font_size].get('height')
+            calib_cpi = calibrated_metrics[body_font_size].get('cpi')
         
         chars_per_line = max(1, int(col_width_inches * calib_cpi)) if calib_cpi else 30
         line_height = calib_h if calib_h else _TEXT_LINE_HEIGHT
@@ -144,10 +144,16 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
         title_h = Inches(0.5) if element.title else 0
         return title_h + (max_lines * line_height) + Inches(0.1)
 
-    # Image, Gallery, Table, Flow, Split:
+    if isinstance(element, Flow):
+        if getattr(element, 'direction', 'horizontal') == 'vertical':
+            count = len(element.items) if hasattr(element, 'items') else 1
+            return max(Inches(1.0), count * Inches(0.5) + max(0, count - 1) * Inches(0.4))
+        else:
+            return Inches(1.5)
+
+    # Image, Gallery, Table, Split:
     # height depends on runtime data — caller handles these separately.
     return Inches(1.0)
-
 def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, content_width, calibrated_metrics=None, theme=None, level_fonts=None, calibrated_heights=None):
     """Estimate available height for elements_list[current_idx]."""
     remaining_h = total_bottom_y - current_y
@@ -244,3 +250,62 @@ def calibrate_line_heights(deck, theme):
         return {}
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+def extract_template_metrics(slide) -> tuple[dict, dict]:
+    """Extracts calibration metrics from a slide."""
+    calibrated_metrics = {}
+    title_metrics = {
+        'font_size_pt': 20.0,
+        'height_inches': 1.2,
+        'top_inches': 0.5,
+        'left_inches': 0.5,
+        'width_inches': 0.0
+    }
+    title_found = False
+    
+    for shape in slide.shapes:
+        if shape.is_placeholder and shape.placeholder_format.type in (1, 3):
+            if not title_found:
+                title_metrics['height_inches'] = shape.height / 914400.0 if shape.height else 1.2
+                title_metrics['top_inches'] = shape.top / 914400.0 if shape.top else 0.5
+                title_metrics['left_inches'] = shape.left / 914400.0 if shape.left else 0.5
+                title_metrics['width_inches'] = shape.width / 914400.0 if shape.width else 0.0
+                
+                if shape.has_text_frame:
+                    for p in shape.text_frame.paragraphs:
+                        for run in p.runs:
+                            if run.font.size:
+                                title_metrics['font_size_pt'] = run.font.size.pt
+                                break
+                        if title_metrics['font_size_pt'] != 20.0: break
+                title_found = True
+            continue
+            
+        if shape.has_text_frame:
+            text = shape.text
+            lines = text.count('\n') + text.count('\x0b') + 1
+            if lines >= 3:
+                font_size_pt = None
+                for p in shape.text_frame.paragraphs:
+                    for run in p.runs:
+                        if run.font.size:
+                            font_size_pt = run.font.size.pt
+                            break
+                    if font_size_pt: break
+                
+                if font_size_pt:
+                    height_per_line = int(font_size_pt * 15240)
+                    first_para_text = shape.text_frame.paragraphs[0].text.split('\x0b')[0]
+                    cpi = len(first_para_text) / (shape.width / 914400.0) if shape.width else 60.0 / 6.0
+                    calibrated_metrics[font_size_pt] = {
+                        'shape_name': shape.name,
+                        'font_size_pt': font_size_pt,
+                        'lines': lines,
+                        'chars_per_line': len(first_para_text),
+                        'box_width_inches': shape.width / 914400.0 if shape.width else 0.0,
+                        'box_height_inches': shape.height / 914400.0 if shape.height else 0.0,
+                        'cpi': cpi,
+                        'height': height_per_line
+                    }
+    return calibrated_metrics, title_metrics
+

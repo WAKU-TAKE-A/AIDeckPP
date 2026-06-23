@@ -83,23 +83,26 @@ def render_timeline(element, ctx: SlideContext, x, y, w, h) -> float:
     for i, ev in enumerate(element.events):
         ev_y = start_y + (i * event_height)
         
-        # Label
-        tb = ctx.slide.shapes.add_textbox(start_x, ev_y, Inches(1.5), event_height)
-        p = tb.text_frame.paragraphs[0]
+        # Date/Title box
+        tb = ctx.slide.shapes.add_textbox(start_x, ev_y, Inches(2.0), event_height)
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
         p.text = ev.label
+        p.alignment = PP_ALIGN.RIGHT
         p.font.name = ctx.theme.font_name
         p.font.size = ctx.theme.size_title
         p.font.bold = True
         p.font.color.rgb = ctx.theme.color_flow_line
         
-        # Line
-        line = ctx.slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, start_x + Inches(1.6), ev_y + Inches(0.1), Inches(0.05), event_height - Inches(0.2))
+        # Vertical Line
+        line = ctx.slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, start_x + Inches(2.1), ev_y + Inches(0.1), Inches(0.05), event_height - Inches(0.2))
         line.fill.solid()
         line.fill.fore_color.rgb = ctx.theme.color_flow_line
         line.line.color.rgb = ctx.theme.color_flow_line
         
-        # Content
-        tb = ctx.slide.shapes.add_textbox(start_x + Inches(1.8), ev_y, width - Inches(1.8), event_height)
+        # Content box
+        tb = ctx.slide.shapes.add_textbox(start_x + Inches(2.3), ev_y, width - Inches(2.3), event_height)
         tf = tb.text_frame
         p = tf.paragraphs[0]
         p.text = ev.title

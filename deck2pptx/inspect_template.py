@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import sys
 
-def extract_template_info(pptx_path: str | Path) -> dict:
+def extract_template_info(pptx_path: str | Path, calib: bool = False) -> dict:
     prs = Presentation(pptx_path)
     layouts_info = []
     
@@ -32,14 +32,22 @@ def extract_template_info(pptx_path: str | Path) -> dict:
             "other_shapes": shapes
         })
         
-    return {
+    result = {
         "template": str(pptx_path),
         "layouts": layouts_info
     }
+    
+    if calib and len(prs.slides) > 0:
+        from .height_estimator import extract_template_metrics
+        metrics, title_metrics = extract_template_metrics(prs.slides[0])
+        result["calibrated_metrics"] = metrics
+        result["title_metrics"] = title_metrics
+        
+    return result
 
-def inspect_template(pptx_path: str | Path, output_format: str = 'text'):
+def inspect_template(pptx_path: str | Path, output_format: str = 'text', calib: bool = False):
     try:
-        result = extract_template_info(pptx_path)
+        result = extract_template_info(pptx_path, calib)
     except Exception as e:
         if output_format == 'json':
             print(json.dumps({"error": str(e)}, indent=2))
@@ -61,4 +69,23 @@ def inspect_template(pptx_path: str | Path, output_format: str = 'text'):
                 print("  Other Shapes:")
                 for sh in layout['other_shapes']:
                     print(f"    - '{sh['name']}' ({sh['type']})")
+        if "calibrated_metrics" in result:
+            tm = result.get("title_metrics", {})
+            print("Title Placeholder Metrics:")
+            print(f"  - Font Size: {tm.get('font_size_pt')}pt")
+            print(f"  - Top: {tm.get('top_inches'):.2f} inches")
+            print(f"  - Left: {tm.get('left_inches'):.2f} inches")
+            print(f"  - Width: {tm.get('width_inches'):.2f} inches")
+            print(f"  - Height: {tm.get('height_inches'):.2f} inches\n")
+            
+            print("Calibrated Metrics (from first slide):")
+            for fs, data in result["calibrated_metrics"].items():
+                print(f"  Font Size {fs}pt:")
+                print(f"    - Shape Name: '{data['shape_name']}'")
+                print(f"    - Lines: {data['lines']}")
+                print(f"    - Chars per line: {data['chars_per_line']}")
+                print(f"    - Box Width: {data['box_width_inches']:.2f} inches")
+                print(f"    - Box Height: {data['box_height_inches']:.2f} inches")
+                print(f"    - CPI: {data['cpi']:.2f}")
+                print(f"    - Calculated Line Height: {data['height']} EMU")
             print()

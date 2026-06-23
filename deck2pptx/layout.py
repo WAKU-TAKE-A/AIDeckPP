@@ -2,7 +2,7 @@ from pptx.util import Inches
 from .models import Slide, Gallery, Flow, Image
 
 class Layout:
-    def __init__(self, slide_width: int, slide_height: int):
+    def __init__(self, slide_width: int, slide_height: int, title_metrics: dict = None):
         self.slide_width = slide_width
         self.slide_height = slide_height
         
@@ -11,10 +11,17 @@ class Layout:
         self.margin_y = Inches(0.5)
         
         # Title area
-        self.title_x = self.margin_x
-        self.title_y = self.margin_y
-        self.title_width = slide_width - (2 * self.margin_x)
-        self.title_height = Inches(1.2)
+        if title_metrics:
+            self.title_x = Inches(title_metrics.get('left_inches', 0.5))
+            self.title_y = Inches(title_metrics.get('top_inches', 0.5))
+            self.title_height = Inches(title_metrics.get('height_inches', 1.2))
+            w = title_metrics.get('width_inches', 0)
+            self.title_width = Inches(w) if w else (slide_width - (2 * self.margin_x))
+        else:
+            self.title_x = self.margin_x
+            self.title_y = self.margin_y
+            self.title_width = slide_width - (2 * self.margin_x)
+            self.title_height = Inches(1.2)
         
         # Content area
         self.content_x = self.margin_x

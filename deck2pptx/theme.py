@@ -19,9 +19,9 @@ class Theme:
         
         # Typography
         self.font_name = "Calibri" # Usually safe on most systems
-        self.size_title = Pt(22)
-        self.size_subtitle = Pt(20)
-        self.size_body = Pt(20)
-        self.size_body_semi_small = Pt(18)
-        self.size_body_small = Pt(16)
-        self.size_body_extra_small = Pt(14)
+        self.size_title = Pt(20)
+        self.size_subtitle = Pt(18)
+        self.size_body = Pt(18)
+        self.size_body_semi_small = Pt(16)
+        self.size_body_small = Pt(14)
+        self.size_body_extra_small = Pt(12)

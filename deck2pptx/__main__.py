@@ -66,7 +66,7 @@ def build_cmd(args):
 
 def inspect_template_cmd(args):
     from .inspect_template import inspect_template
-    inspect_template(args.template_file, args.format)
+    inspect_template(args.template_file, args.format, getattr(args, 'calib', False))
 
 def main():
     parser = argparse.ArgumentParser(description="Generate PowerPoint from Semantic Deck Format")
@@ -88,6 +88,7 @@ def main():
     p_inspect_tmpl = subparsers.add_parser('inspect-template', help="Inspect PPTX template layouts and placeholders")
     p_inspect_tmpl.add_argument('template_file', help="Path to PPTX template")
     p_inspect_tmpl.add_argument('--format', choices=["json", "text"], default="text", help="Output format")
+    p_inspect_tmpl.add_argument('--calib', action='store_true', help="Also extract and output calibration metrics from the first slide")
     p_inspect_tmpl.set_defaults(func=inspect_template_cmd)
     
     # Validate
