@@ -1,6 +1,6 @@
 from pptx.util import Pt
 from ..render_context import SlideContext
-from ..height_estimator import _estimate_element_height, ELEMENT_GAP
+from ..height_estimator import _estimate_element_height
 
 def render(element, ctx: SlideContext, x, y, w, h) -> float:
     from ..render_utils import _set_text_frame_text
@@ -21,12 +21,12 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
         _set_text_frame_text(
             tf,
             element.content,
-            font_name=ctx.theme.font_name,
-            font_size=Pt(ctx.level_fonts[0]) if 0 in ctx.level_fonts else ctx.theme.size_body,
-            font_color=ctx.theme.color_text,
+            font_name=ctx.theme.font.name,
+            font_size=Pt(ctx.level_fonts[0]) if 0 in ctx.level_fonts else ctx.theme.font.size_body,
+            font_color=ctx.theme.color.text,
         )
         if not ph:
-            return y + rendered_height + ELEMENT_GAP
+            return y + rendered_height + ctx.theme.layout.element_gap
         return y
 
 def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
@@ -39,13 +39,13 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
             is_li = isinstance(item, ListItem)
             text = item.text if is_li else str(item)
             level = item.level if is_li else 0
-            
+
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
             p.text = text
             if level > 0: p.level = level
-            
+
             font_size = ctx.level_fonts.get(level)
-            
+
             if font_size:
                 p.font.size = Pt(font_size)
         return y
@@ -61,16 +61,16 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
             is_li = isinstance(item, ListItem)
             text = item.text if is_li else str(item)
             level = item.level if is_li else 0
-            
+
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
             p.text = text
             if level > 0: p.level = level
-            p.font.name = ctx.theme.font_name
-            
+            p.font.name = ctx.theme.font.name
+
             font_size = ctx.level_fonts.get(level)
-            
-            p.font.size = Pt(font_size) if font_size else (ctx.theme.size_body if level == 0 else ctx.theme.size_body_small)
-            p.font.color.rgb = ctx.theme.color_text
+
+            p.font.size = Pt(font_size) if font_size else (ctx.theme.font.size_body if level == 0 else ctx.theme.font.size_body_small)
+            p.font.color.rgb = ctx.theme.color.text
         if not ph:
-            return y + rendered_height + ELEMENT_GAP
+            return y + rendered_height + ctx.theme.layout.element_gap
         return y

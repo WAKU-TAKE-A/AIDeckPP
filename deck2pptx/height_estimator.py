@@ -8,27 +8,45 @@ from pptx.enum.text import MSO_AUTO_SIZE
 
 from .models import Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock, Mermaid, Tree, Comparison, Timeline
 from .text_utils import count_rendered_lines
+from .theme import Theme
 
-ELEMENT_GAP = Inches(0.15)          # uniform gap between consecutive elements
-_TEXT_LINE_HEIGHT = Inches(0.35)    # estimated height per wrapped line of body text
-_BULLET_LINE_HEIGHT = Inches(0.32)  # estimated height per bullet item line
-_TEXT_MIN_HEIGHT = Inches(0.4)      # minimum text box height (approx 1 line)
-_BULLET_MIN_HEIGHT = Inches(0.8)    # minimum bullet list height
+# Lazily-built default Theme, used only when a caller does not have one
+# (e.g. isolated unit tests). The renderer always passes ctx.theme, so in
+# the normal build pipeline this is never constructed.
+_default_theme = None
+
+
+def _theme_or_default(theme):
+    global _default_theme
+    if theme is not None:
+        return theme
+    if _default_theme is None:
+        _default_theme = Theme()
+    return _default_theme
+
 
 def _get_font_size(level_fonts, theme, level=0):
-    fs = 24.0 if level == 0 else 18.0
-    if theme and hasattr(theme, 'size_body'):
-        fs = theme.size_body.pt
+    # NOTE: when `theme` is available (always, in the real renderer),
+    # theme.font.size_body wins over the fallback below regardless of
+    # `level` -- this mirrors the original (pre-theme.ini) behavior, where
+    # the level-based fallback was effectively dead code once a Theme
+    # existed. The fallback values are still configurable in theme.ini
+    # for completeness, but tuning them will not change normal output.
+    theme = _theme_or_default(theme)
+    fs = theme.font.fallback_size_level0 if level == 0 else theme.font.fallback_size_other
+    if theme and hasattr(theme, 'font') and hasattr(theme.font, 'size_body'):
+        fs = theme.font.size_body.pt
     if level_fonts and level in level_fonts:
         fs = level_fonts[level]
     return fs
+
 
 def _get_calibrated_metrics(fs, calibrated_metrics):
     if not calibrated_metrics:
         return None, None
     if fs in calibrated_metrics:
         return calibrated_metrics[fs]['height'], calibrated_metrics[fs]['cpi']
-    
+
     # Find closest
     closest_fs = min(calibrated_metrics.keys(), key=lambda k: abs(k - fs))
     ref = calibrated_metrics[closest_fs]
@@ -37,6 +55,8 @@ def _get_calibrated_metrics(fs, calibrated_metrics):
 
 def _estimate_element_height(element, content_width, calibrated_metrics=None, theme=None, level_fonts=None, calibrated_heights=None):
     """Return estimated rendered height (EMU) for an element."""
+    theme = _theme_or_default(theme)
+
     if getattr(element, 'height_hint', None) is not None:
         return element.height_hint
 
@@ -50,58 +70,57 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
             
         if line_height:
             if calib_cpi:
-                width_inches = content_width / 914400.0 if content_width else 10.0
+                width_inches = content_width / theme.calibration.emu_per_inch if content_width else theme.calibration.fallback_width_inches
                 chars_per_line = max(1, int(width_inches * calib_cpi))
             else:
-                chars_per_line = 60
+                chars_per_line = theme.text.fallback_chars_per_line
             estimated_lines = element.content.count('\n') + 1 + len(element.content) // chars_per_line
-            return max(_TEXT_MIN_HEIGHT, estimated_lines * line_height + Inches(0.1))
+            return max(theme.text.min_height, estimated_lines * line_height + theme.text.padding)
         else:
-            estimated_lines = element.content.count('\n') + 1 + len(element.content) // 60
-            return max(_TEXT_MIN_HEIGHT, estimated_lines * _TEXT_LINE_HEIGHT)
+            estimated_lines = element.content.count('\n') + 1 + len(element.content) // theme.text.fallback_chars_per_line
+            return max(theme.text.min_height, estimated_lines * theme.text.line_height)
 
     if isinstance(element, BulletList):
         from .models import ListItem
         total_h = 0
-        has_calib = bool(calibrated_metrics) or bool(calibrated_heights)
+
         for item in element.items:
             lvl = item.level if isinstance(item, ListItem) else 0
             text = item.text if isinstance(item, ListItem) else str(item)
             fs = _get_font_size(level_fonts, theme, lvl)
             calib_h, calib_cpi = _get_calibrated_metrics(fs, calibrated_metrics)
-            
             line_height = calib_h
             if not line_height and calibrated_heights:
                 line_height = calibrated_heights.get(lvl)
 
             if line_height:
                 if calib_cpi:
-                    width_inches = content_width / 914400.0 if content_width else 10.0
-                    indent_inches = 0.2 + (lvl * 0.2)
+                    width_inches = content_width / theme.calibration.emu_per_inch if content_width else theme.calibration.fallback_width_inches
+                    indent_inches = theme.bullet.indent_per_level * (lvl + 1)
                     avail_width = max(1.0, width_inches - indent_inches)
                     chars_per_line = max(1, int(avail_width * calib_cpi))
                 else:
-                    chars_per_line = 50
+                    chars_per_line = theme.text.fallback_chars_per_line
                 lines = text.count('\n') + 1 + len(text) // chars_per_line
                 total_h += lines * line_height
             else:
-                weight = 1.0 if lvl == 0 else 0.8
-                total_h += weight * _BULLET_LINE_HEIGHT
-        return max(_BULLET_MIN_HEIGHT, total_h + Inches(0.1))
+                weight = theme.bullet.level_weight_default if lvl == 0 else theme.bullet.level_weight_indented
+                total_h += weight * theme.bullet.line_height
+        return max(theme.bullet.min_height, total_h + theme.bullet.padding)
 
     if isinstance(element, CodeBlock):
         lines = len(element.code.splitlines()) if element.code else 1
-        box_h = Inches(max(1.0, lines * 0.25 + 0.2))
-        caption_h = Inches(0.4) if (getattr(element, 'caption', None) or getattr(element, 'language', None)) else 0
+        box_h = Inches(max(theme.code.min_height, lines * theme.code.line_height_factor + theme.code.height_padding))
+        caption_h = theme.code.caption_height if (getattr(element, 'caption', None) or getattr(element, 'language', None)) else 0
         return caption_h + box_h
-        
+
     if isinstance(element, Mermaid):
         from . import mermaid_handler
         if mermaid_handler.has_mermaid_cli():
-            return getattr(element, 'height_hint', None) or Inches(3.0)
+            return getattr(element, 'height_hint', None) or theme.mermaid.default_height
         else:
             lines = len(element.code.splitlines()) if element.code else 1
-            box_h = Inches(max(1.0, lines * 0.25 + 0.2))
+            box_h = Inches(max(theme.code.min_height, lines * theme.code.line_height_factor + theme.code.height_padding))
             return box_h
 
     if isinstance(element, Tree):
@@ -110,28 +129,28 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
                 return 1
             return sum(count_leaves(child) for child in node.children)
         leaf_count = count_leaves(element.root)
-        node_height = Inches(0.4)
-        vertical_gap = Inches(0.15)
-        return max(Inches(1.0), leaf_count * node_height + (leaf_count - 1) * vertical_gap)
+        node_height = theme.tree.node_height
+        vertical_gap = theme.tree.vertical_gap
+        return max(theme.layout.min_remaining_height, leaf_count * node_height + (leaf_count - 1) * vertical_gap)
 
     if isinstance(element, Timeline):
-        return len(element.events) * Inches(0.8)
+        return len(element.events) * theme.timeline.event_height
 
     if isinstance(element, Comparison):
         num_cols = len(element.columns)
         if num_cols == 0:
-            return Inches(1.0)
-        col_width_inches = (content_width / 914400.0 if content_width else 10.0) / num_cols
-        
+            return theme.layout.min_remaining_height
+        col_width_inches = (content_width / theme.calibration.emu_per_inch if content_width else theme.calibration.fallback_width_inches) / num_cols
+
         calib_h = None
         calib_cpi = None
-        body_font_size = theme.size_body if theme else 18
+        body_font_size = theme.font.size_body
         if calibrated_metrics and body_font_size in calibrated_metrics:
             calib_h = calibrated_metrics[body_font_size].get('height')
             calib_cpi = calibrated_metrics[body_font_size].get('cpi')
         
-        chars_per_line = max(1, int(col_width_inches * calib_cpi)) if calib_cpi else 30
-        line_height = calib_h if calib_h else _TEXT_LINE_HEIGHT
+        chars_per_line = max(1, int(col_width_inches * calib_cpi)) if calib_cpi else theme.comparison.fallback_chars_per_line
+        line_height = calib_h if calib_h else theme.text.line_height
 
         max_lines = 0
         for col in element.columns:
@@ -140,9 +159,9 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
                 lines += count_rendered_lines(item, chars_per_line)
             if lines > max_lines:
                 max_lines = lines
-                
-        title_h = Inches(0.5) if element.title else 0
-        return title_h + (max_lines * line_height) + Inches(0.1)
+
+        title_h = theme.comparison.title_height if element.title else 0
+        return title_h + (max_lines * line_height) + theme.comparison.padding
 
     if isinstance(element, Flow):
         if getattr(element, 'direction', 'horizontal') == 'vertical':
@@ -153,11 +172,15 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
 
     # Image, Gallery, Table, Split:
     # height depends on runtime data — caller handles these separately.
-    return Inches(1.0)
+    return theme.layout.min_remaining_height
+
 def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, content_width, calibrated_metrics=None, theme=None, level_fonts=None, calibrated_heights=None):
     """Estimate available height for elements_list[current_idx]."""
+    theme = _theme_or_default(theme)
+
     remaining_h = total_bottom_y - current_y
-    if remaining_h < Inches(1): remaining_h = Inches(1)
+    if remaining_h < theme.layout.min_remaining_height:
+        remaining_h = theme.layout.min_remaining_height
 
     from . import mermaid_handler
     has_mmdc = mermaid_handler.has_mermaid_cli()
@@ -165,7 +188,7 @@ def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, c
     # Reserve height for all text-like elements that come AFTER the current one.
     future_elements = elements_list[current_idx + 1:]
     reserved_text_h = sum(
-        _estimate_element_height(e, content_width, calibrated_metrics, theme, level_fonts, calibrated_heights) + ELEMENT_GAP
+        _estimate_element_height(e, content_width, calibrated_metrics, theme, level_fonts, calibrated_heights) + theme.layout.element_gap
         for e in future_elements
         if getattr(e, 'placeholder', None) is None and (
             isinstance(e, (Text, BulletList, CodeBlock, Tree, Comparison, Timeline)) or (isinstance(e, Mermaid) and not has_mmdc)
@@ -178,7 +201,8 @@ def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, c
     )
 
     available_img_h = remaining_h - reserved_text_h
-    if available_img_h < Inches(1): available_img_h = Inches(1)
+    if available_img_h < theme.layout.min_remaining_height:
+        available_img_h = theme.layout.min_remaining_height
 
     current_element = elements_list[current_idx]
     if (isinstance(current_element, (Image, Gallery, Split, Table)) or (isinstance(current_element, Mermaid) and has_mmdc)) and remaining_imgs > 0:
@@ -218,7 +242,7 @@ def calibrate_line_heights(deck, theme):
         tf.text = lines_text
         
         for p in tf.paragraphs:
-            p.font.name = theme.font_name if theme and theme.font_name else "Arial"
+            p.font.name = theme.font.name if theme and hasattr(theme, 'font') and theme.font.name else "Arial"
             p.font.size = Pt(fs)
 
     temp_dir = tempfile.mkdtemp()

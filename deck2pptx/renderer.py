@@ -1,5 +1,5 @@
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Inches
 from pptx.enum.text import PP_ALIGN
 from pathlib import Path
 import re
@@ -31,10 +31,12 @@ def _name_equals(actual_name: str, requested_name: str) -> bool:
 def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), template_path: str = None, calib_first_slide: bool = False):
     calibrated_metrics = {}
     title_metrics = None
+    theme = Theme(deck.theme)
+
     # Initialize Presentation
     if template_path:
         prs = Presentation(template_path)
-        
+
         # Calibration Extraction
         do_calib = calib_first_slide
         if not do_calib and len(prs.slides) > 0:
@@ -48,7 +50,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             calib_slide = prs.slides[0]
             from .height_estimator import extract_template_metrics
             calibrated_metrics, title_metrics = extract_template_metrics(calib_slide)
-                            
+
         level_fonts = {}
         if calibrated_metrics:
             sorted_fonts = sorted(calibrated_metrics.keys(), reverse=True)
@@ -59,26 +61,24 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
     else:
         prs = Presentation()
         level_fonts = {}
-    
+
     base_dir = Path(base_dir)
-    theme = Theme(deck.theme)
-    
     from .height_estimator import calibrate_line_heights
     calibrated_heights = calibrate_line_heights(deck, theme)
-    
+
     # Set slide dimensions (only when no template; templates keep their own size)
     if not template_path:
         if deck.orientation == 'portrait':
-            prs.slide_width = Inches(7.5)
-            prs.slide_height = Inches(13.333)
+            prs.slide_width = theme.layout.slide_width_portrait
+            prs.slide_height = theme.layout.slide_height_portrait
         else:
-            prs.slide_width = Inches(13.333)
-            prs.slide_height = Inches(7.5)
+            prs.slide_width = theme.layout.slide_width_landscape
+            prs.slide_height = theme.layout.slide_height_landscape
         
-    layout = Layout(prs.slide_width, prs.slide_height, title_metrics=title_metrics)
-    
+    layout = Layout(prs.slide_width, prs.slide_height, theme, title_metrics=title_metrics)
+
     render_slides = list(deck.slides)
-    
+
     if deck.toc:
         toc_title_text = deck.toc_title or "Table of Contents"
         toc_items = []
@@ -87,21 +87,21 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 continue
             if s.title:
                 toc_items.append(s.title)
-        
+
         toc_slide = Slide(
             title=toc_title_text,
             layout_hint="Title and Content",
             elements=[BulletList(items=toc_items)]
         )
-        
+
         if len(render_slides) > 0:
             render_slides.insert(1, toc_slide)
         else:
             render_slides.append(toc_slide)
-    
+
     for slide_model in render_slides:
         layout_type = get_slide_layout_type(slide_model)
-        
+
         # Determine layout
         slide_layout = None
         if slide_model.layout_hint:
@@ -110,7 +110,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 if _name_matches(ly.name, slide_model.layout_hint):
                     slide_layout = ly
                     break
-        
+
         if not slide_layout:
             # fallback to blank (index 6 usually) or title (index 0)
             if layout_type == "title" and len(prs.slide_layouts) > 0:
@@ -119,14 +119,14 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 slide_layout = prs.slide_layouts[6]
             elif len(prs.slide_layouts) > 0:
                 slide_layout = prs.slide_layouts[-1]
-                
+
         slide = prs.slides.add_slide(slide_layout)
-        
+
         # Add slide notes if any
         if slide_model.notes and slide.has_notes_slide:
             notes_slide = slide.notes_slide
             notes_slide.notes_text_frame.text = slide_model.notes
-            
+
         def find_placeholder(name):
             if not name: return None
             for shape in slide.shapes:
@@ -155,39 +155,45 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                     title_ph = shape
                 elif not subtitle_ph and shape.placeholder_format.type == 4: # SUBTITLE
                     subtitle_ph = shape
-        
+
+        title_slide_y = layout.slide_height * theme.layout.title_slide_position_ratio
+
         if slide_model.title:
             if title_ph:
                 title_ph.text = slide_model.title
             else:
-                title_y = layout.slide_height / 3 if layout_type == "title" else layout.title_y
-                txBox = slide.shapes.add_textbox(layout.title_x, title_y, layout.title_width, Inches(1.5) if layout_type == "title" else layout.title_height)
+                title_y = title_slide_y if layout_type == "title" else layout.title_y
+                title_box_height = theme.layout.title_slide_title_box_height if layout_type == "title" else layout.title_height
+                txBox = slide.shapes.add_textbox(layout.title_x, title_y, layout.title_width, title_box_height)
                 tf = txBox.text_frame
                 tf.word_wrap = True
                 p = tf.paragraphs[0]
                 p.text = slide_model.title
                 if layout_type == "title": p.alignment = PP_ALIGN.CENTER
-                p.font.name = theme.font_name
-                p.font.size = theme.size_title
-                p.font.color.rgb = theme.color_primary if layout_type != "title" else theme.color_text
-        
+                p.font.name = theme.font.name
+                p.font.size = theme.font.size_title
+                p.font.color.rgb = theme.color.primary if layout_type != "title" else theme.color.text
+
         if slide_model.subtitle:
             if subtitle_ph:
                 subtitle_ph.text = slide_model.subtitle
             else:
                 # If we made a manual title box, add paragraph there if title existed, else make new box
                 # For simplicity, fallback to adding a new textbox below title
-                sub_y = (layout.slide_height / 3 + Inches(1.5)) if layout_type == "title" else (layout.title_y + layout.title_height)
-                txBox = slide.shapes.add_textbox(layout.title_x, sub_y, layout.title_width, Inches(1))
+                sub_y = (
+                    (title_slide_y + theme.layout.title_slide_title_box_height)
+                    if layout_type == "title" else (layout.title_y + layout.title_height)
+                )
+                txBox = slide.shapes.add_textbox(layout.title_x, sub_y, layout.title_width, theme.layout.title_slide_subtitle_box_height)
                 tf = txBox.text_frame
                 tf.word_wrap = True
                 p = tf.paragraphs[0]
                 p.text = slide_model.subtitle
                 if layout_type == "title": p.alignment = PP_ALIGN.CENTER
-                p.font.name = theme.font_name
-                p.font.size = theme.size_subtitle
-                p.font.color.rgb = theme.color_text_light
-        
+                p.font.name = theme.font.name
+                p.font.size = theme.font.size_subtitle
+                p.font.color.rgb = theme.color.text_light
+
         ctx = SlideContext(
             slide=slide,
             theme=theme,
@@ -204,11 +210,11 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
         y_offset = 0
         if align_val:
             val = align_val.lower()
-            if val in ('top',): y_offset = -Inches(0.6)
-            elif val in ('semi-top', 'high'): y_offset = -Inches(0.3)
-            elif val in ('semi-bottom', 'low'): y_offset = Inches(0.3)
-            elif val in ('bottom',): y_offset = Inches(0.6)
-            
+            if val in ('top',): y_offset = -theme.layout.align_offset_large
+            elif val in ('semi-top', 'high'): y_offset = -theme.layout.align_offset_small
+            elif val in ('semi-bottom', 'low'): y_offset = theme.layout.align_offset_small
+            elif val in ('bottom',): y_offset = theme.layout.align_offset_large
+
         current_y = layout.content_y + y_offset
         content_x = layout.content_x
         for idx_el, element in enumerate(slide_model.elements):
@@ -217,10 +223,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
                 slide_model.elements, idx_el,
                 layout.content_y + layout.content_height,
                 current_y, layout.content_width,
-                calibrated_metrics=calibrated_metrics,
-                theme=theme,
-                level_fonts=level_fonts,
-                calibrated_heights=calibrated_heights
+                calibrated_metrics=ctx.calibrated_metrics, theme=ctx.theme, level_fonts=ctx.level_fonts, calibrated_heights=ctx.calibrated_heights
             )
             current_y = render_element(element, ctx, content_x, current_y, layout.content_width, adj_h)
 
