@@ -128,6 +128,7 @@ class Slide:
     notes: Optional[str] = None
     layout_hint: Optional[str] = None
     content_align: Optional[str] = None
+    section_no: Optional[str] = None
     elements: List[Element] = field(default_factory=list)
 
 @dataclass
@@ -139,4 +140,6 @@ class Deck:
     toc_title: Optional[str] = None
     indent: Optional[int] = None
     content_align: Optional[str] = None
+    footer: Optional[str] = None
+    date: Optional[str] = None
     slides: List[Slide] = field(default_factory=list)

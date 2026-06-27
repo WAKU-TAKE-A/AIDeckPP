@@ -158,6 +158,21 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
 
         title_slide_y = layout.slide_height * theme.layout.title_slide_position_ratio
 
+        slide_no_ph = find_placeholder("slideno")
+        if slide_no_ph:
+            slide_no_ph.text = str(slide_idx + 1)
+            
+        section_no_ph = find_placeholder("sectionno")
+        if section_no_ph and slide_model.section_no:
+            section_no_ph.text = str(slide_model.section_no)
+
+        footer_ph = find_placeholder("footer")
+        if footer_ph and deck.footer is not None:
+            footer_ph.text = str(deck.footer)
+
+        date_ph = find_placeholder("date")
+        if date_ph and deck.date is not None:
+            date_ph.text = str(deck.date)
         if slide_model.title:
             if title_ph:
                 title_ph.text = slide_model.title

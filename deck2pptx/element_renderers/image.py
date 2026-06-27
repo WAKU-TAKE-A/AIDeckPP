@@ -25,18 +25,19 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
             if element.caption:
                 max_h -= caption_height
 
-            from PIL import Image as PILImage
             try:
-                with PILImage.open(str(img_path)) as pil_img:
-                    img_w, img_h = pil_img.size
-                ratio = min(max_w / img_w, max_h / img_h)
-                new_w = img_w * ratio
-                new_h = img_h * ratio
+                pic = ctx.slide.shapes.add_picture(str(img_path), target_x, target_y)
+                native_w = pic.width
+                native_h = pic.height
+                scale = min(max_w / native_w, max_h / native_h, 1.0)
+                new_w = int(native_w * scale)
+                new_h = int(native_h * scale)
+                pic.width = new_w
+                pic.height = new_h
             except:
-                new_w = max_w
-                new_h = None
-
-            pic = ctx.slide.shapes.add_picture(str(img_path), target_x, target_y, width=new_w, height=new_h)
+                pic = ctx.slide.shapes.add_picture(str(img_path), target_x, target_y, width=max_w)
+                new_w = pic.width
+                new_h = pic.height
             if element.caption:
                 tb = ctx.slide.shapes.add_textbox(target_x, target_y + (new_h if new_h else pic.height), new_w, caption_height)
                 p = tb.text_frame.paragraphs[0]
@@ -96,17 +97,20 @@ def render_gallery(element, ctx: SlideContext, x, y, w, h) -> float:
 
         img_path = ctx.base_dir / img.source
         try:
-            from PIL import Image as PILImage
-            with PILImage.open(str(img_path)) as pil_img:
-                img_w, img_h = pil_img.size
-            ratio = min(max_w / img_w, max_h / img_h)
-            new_w = img_w * ratio
-            new_h = img_h * ratio
+            pic = ctx.slide.shapes.add_picture(str(img_path), 0, 0)
+            native_w = pic.width
+            native_h = pic.height
+            scale = min(max_w / native_w, max_h / native_h, 1.0)
+            new_w = int(native_w * scale)
+            new_h = int(native_h * scale)
 
-            center_x = cell_x + (cell_width - new_w) / 2
-            center_y = cell_y + (cell_height - new_h - (caption_height if img.caption else 0)) / 2
+            center_x = int(cell_x + (cell_width - new_w) / 2)
+            center_y = int(cell_y + (cell_height - new_h - (caption_height if img.caption else 0)) / 2)
 
-            ctx.slide.shapes.add_picture(str(img_path), center_x, center_y, width=new_w, height=new_h)
+            pic.left = center_x
+            pic.top = center_y
+            pic.width = new_w
+            pic.height = new_h
 
             if img.caption:
                 tb = ctx.slide.shapes.add_textbox(cell_x, center_y + new_h, cell_width, caption_height)

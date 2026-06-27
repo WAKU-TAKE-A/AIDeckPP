@@ -115,7 +115,10 @@ When a PowerPoint template is involved, always inspect it first:
    ```powershell
    .\.venv\Scripts\python.exe -m deck2pptx build input.md output.pptx --template template.pptx --calib-first-slide
    ```
-   Fallback behavior is active: if a layout or placeholder name is not found in the template, the default behavior will be used without crashing.
+   **Placeholder Resolution & Fallback**:
+   - The system first attempts to match placeholders by their name (case-insensitive, matching exact name or stable prefix).
+   - If no match is found by name, the system falls back to matching by their placeholder type: `TITLE` (1), `BODY` (2), `SLIDE_NUMBER` (13), `DATE` (16), or `FOOTER` (15). This guarantees compatibility with templates from LibreOffice and other software.
+   - Fallback behavior is active: if a layout or placeholder name is not found in the template, the default behavior will be used without crashing.
 
 ### Document Structure & Typography
 
@@ -123,11 +126,48 @@ You can control the overall deck typography and structure using YAML front matte
 - `toc`: Set to `true` to automatically generate a Table of Contents slide.
 - `toc_title`: Override the default "Table of Contents" title.
 - `indent`: Controls list hierarchy mapping in Markdown. How many spaces equal one list level (default: 2).
+- `footer`: Sets global footer text to be injected into the footer placeholders.
+- `date`: Sets a global presentation date (defaults to the current date if omitted).
 
+#### Automatic Page Numbering and Variable Injection
+- The system automatically tracks section indices and slide numbers (`slideno`, `section_no`).
+- `SLIDE_NUMBER` type placeholders are automatically populated with the correct slide number.
+- Any occurrences of the literal token `<#>` in shapes, text boxes, and titles are dynamically replaced with the slide number.
 
 For images, use paths relative to the input file location.
 
 For Flow, define nodes and edges using supported IDs. Always validate because edges must reference existing node IDs.
+
+## Debugging & Inspection
+
+To inspect templates, outputs, or calibrated metrics, use the universal `Inspects` package. This package consolidates all older individual debug scripts into a structured CLI.
+
+### 1. Slide Master Layouts & Placeholders
+Inspects layout structures, placeholder names, and type IDs:
+```powershell
+.\.venv\Scripts\python.exe -m Inspects.main layouts Inputs/your_template.pptx
+```
+
+### 2. Slide Shape Coordinates & Text
+Inspects shapes, bounding boxes, text content, and font sizes:
+```powershell
+.\.venv\Scripts\python.exe -m Inspects.main shapes Outputs/your_output.pptx
+```
+**Options**:
+- `--slide N`: Inspect only slide `N` (1-indexed).
+- `--search "query"`: Inspect only slides containing the specified text string.
+
+### 3. Calibration Data
+Inspects the first slide of a template to view the character-per-inch (CPI) and average line height calculated for typography calibration:
+```powershell
+.\.venv\Scripts\python.exe -m Inspects.main calib Inputs/your_template.pptx
+```
+
+### 4. Layout Height Comparison (LibreOffice required)
+Converts the presentation using LibreOffice headless mode to recalculate dynamic text box heights, then outputs a markdown table comparing estimated heights with actual rendered heights:
+```powershell
+.\.venv\Scripts\python.exe -m Inspects.main compare Outputs/your_output.pptx --slide 1
+```
 
 ## Quality Gate
 

@@ -25,6 +25,9 @@ def load_markdown(file_path: str | Path) -> Deck:
                 if 'indent' in fm:
                     deck.indent = fm['indent']
                 deck.content_align = fm.get('content_align')
+                deck.footer = fm.get('footer')
+                if 'date' in fm:
+                    deck.date = str(fm['date'])
             except:
                 pass
             content = parts[2].lstrip()
@@ -155,6 +158,8 @@ def load_markdown(file_path: str | Path) -> Deck:
     if current_slide_lines:
         slides_data.append((pending_layout, current_slide_lines))
         
+    section_counter = 0
+        
     for layout_hint, slide_lines in slides_data:
         if not slide_lines:
             continue
@@ -163,6 +168,8 @@ def load_markdown(file_path: str | Path) -> Deck:
         for idx, ln in enumerate(slide_lines):
             if re.match(r'^(#{1,3})\s+', ln):
                 title_line_idx = idx
+                if re.match(r'^##\s+', ln):
+                    section_counter += 1
                 break
         
         if title_line_idx >= 0:
@@ -172,7 +179,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             
         i = 0
             
-        slide = Slide(title=title, layout_hint=layout_hint)
+        slide = Slide(title=title, layout_hint=layout_hint, section_no=str(section_counter))
         
         current_text = []
         current_bullets = []
