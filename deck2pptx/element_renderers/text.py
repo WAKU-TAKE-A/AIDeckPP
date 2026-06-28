@@ -70,6 +70,8 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
             p.text = text
             if level > 0: p.level = level
             p.font.name = ctx.theme.font.name
+            p.space_before = Pt(0)
+            p.space_after = Pt(0)
 
             font_size = ctx.level_fonts.get(level)
 

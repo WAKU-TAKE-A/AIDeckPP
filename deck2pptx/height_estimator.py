@@ -319,7 +319,11 @@ def extract_template_metrics(slide, theme=None) -> tuple[dict, dict]:
                 
                 if font_size_pt:
                     if shape.height:
-                        height_per_line = int(shape.height / lines)
+                        tf = shape.text_frame
+                        margin_top = tf.margin_top if tf.margin_top is not None else 0
+                        margin_bottom = tf.margin_bottom if tf.margin_bottom is not None else 0
+                        pure_height = shape.height - margin_top - margin_bottom
+                        height_per_line = int(pure_height / lines)
                     else:
                         theme = _theme_or_default(theme)
                         lh_factor = theme.calibration.line_height_factor if theme else 1.2
