@@ -139,6 +139,8 @@ class TableTheme:
         self.header_fill_color = _color(cp, s, "header_fill_color")
         self.header_font_size = _pt(cp, s, "header_font_size")
         self.cell_font_size = _pt(cp, s, "cell_font_size")
+        self.border_color = _s(cp, s, "border_color")
+        self.border_width_pt = _f(cp, s, "border_width_pt")
 
 
 class FlowTheme:

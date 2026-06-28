@@ -1,5 +1,34 @@
 from pptx.util import Pt
+from pptx.oxml.xmlchemy import OxmlElement
 from ..render_context import SlideContext
+
+def _set_cell_border(cell, color_hex: str, width_pt: float):
+    """Low-level XML helper to apply border style to a cell's XML element."""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    
+    # 1pt = 12700 EMU
+    width_emu = str(int(width_pt * 12700))
+    
+    # lnL: Left, lnR: Right, lnT: Top, lnB: Bottom
+    for border_name in ['lnL', 'lnR', 'lnT', 'lnB']:
+        # Remove any existing border elements of this type
+        for child in list(tcPr):
+            if child.tag.endswith(border_name):
+                tcPr.remove(child)
+        
+        # Create a new border element
+        ln = OxmlElement(f'a:{border_name}')
+        ln.set('w', width_emu)
+        ln.set('cmpd', 's')  # single line
+        
+        solidFill = OxmlElement('a:solidFill')
+        srgbClr = OxmlElement('a:srgbClr')
+        srgbClr.set('val', color_hex)
+        solidFill.append(srgbClr)
+        ln.append(solidFill)
+        
+        tcPr.append(ln)
 
 def render(element, ctx: SlideContext, x, y, w, h) -> float:
     rows = len(element.rows) + 1 if element.headers else len(element.rows)
@@ -26,6 +55,10 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
             cell_obj.text = header
             cell_obj.fill.solid()
             cell_obj.fill.fore_color.rgb = ctx.theme.table.header_fill_color
+            
+            # Apply custom border
+            _set_cell_border(cell_obj, ctx.theme.table.border_color, ctx.theme.table.border_width_pt)
+            
             for p in cell_obj.text_frame.paragraphs:
                 p.font.name = ctx.theme.font.name
                 p.font.size = ctx.theme.table.header_font_size
@@ -39,6 +72,10 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
             cell_obj.text = str(cell)
             cell_obj.fill.solid()
             cell_obj.fill.fore_color.rgb = ctx.theme.color.background
+            
+            # Apply custom border
+            _set_cell_border(cell_obj, ctx.theme.table.border_color, ctx.theme.table.border_width_pt)
+            
             for p in cell_obj.text_frame.paragraphs:
                 p.font.name = ctx.theme.font.name
                 p.font.size = ctx.theme.table.cell_font_size
