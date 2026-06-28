@@ -13,19 +13,36 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
     table_shape = ctx.slide.shapes.add_table(rows, cols, target_x, target_y, target_w, ctx.theme.table.placeholder_init_height)
     table = table_shape.table
 
+    # Clear template default style and apply Table Grid style
+    try:
+        table.style = 'Table Grid'
+    except Exception:
+        pass
+
     row_offset = 0
     if element.headers:
         for i, header in enumerate(element.headers):
-            table.cell(0, i).text = header
+            cell_obj = table.cell(0, i)
+            cell_obj.text = header
+            cell_obj.fill.solid()
+            cell_obj.fill.fore_color.rgb = ctx.theme.table.header_fill_color
+            for p in cell_obj.text_frame.paragraphs:
+                p.font.name = ctx.theme.font.name
+                p.font.size = ctx.theme.table.header_font_size
+                p.font.bold = True
+                p.font.color.rgb = ctx.theme.color.text
         row_offset = 1
 
     for r_idx, row in enumerate(element.rows):
         for c_idx, cell in enumerate(row):
             cell_obj = table.cell(r_idx + row_offset, c_idx)
             cell_obj.text = str(cell)
+            cell_obj.fill.solid()
+            cell_obj.fill.fore_color.rgb = ctx.theme.color.background
             for p in cell_obj.text_frame.paragraphs:
                 p.font.name = ctx.theme.font.name
-                p.font.size = Pt(ctx.level_fonts[1]) if 1 in ctx.level_fonts else ctx.theme.font.size_body_small
+                p.font.size = ctx.theme.table.cell_font_size
+                p.font.color.rgb = ctx.theme.color.text
 
     if not ph:
         rendered_height = getattr(element, 'height_hint', None)
