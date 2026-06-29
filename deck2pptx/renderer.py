@@ -99,7 +99,7 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
         else:
             render_slides.append(toc_slide)
 
-    for slide_model in render_slides:
+    for slide_idx, slide_model in enumerate(render_slides):
         layout_type = get_slide_layout_type(slide_model)
 
         # Determine layout
