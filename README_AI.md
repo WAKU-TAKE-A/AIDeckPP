@@ -10,7 +10,8 @@ The `Deck` model is canonical.
 
 - YAML is only an input adapter.
 - Markdown is only an input adapter.
-- Future AsciiDoc or Natural Language inputs must target the same `Deck` model.
+- AsciiDoc is only an input adapter.
+- Future Natural Language inputs must target the same `Deck` model.
 - Renderer changes must not be required just because a new input adapter is added.
 - PowerPoint is only one renderer.
 
@@ -37,9 +38,11 @@ The `Deck` model is canonical.
 
 Avoid using generic tables and bullets for comparisons, timelines, code, or hierarchy. Use the semantic elements designed for business presentations.
 
-## Markdown Control Comments
+## Control Comments
 
-Markdown uses HTML comments for slide controls and structure. Multiple commands can be combined with `;`. String values should be quoted (e.g. `"TitleLayout"`).
+Markdown uses HTML comments (`<!-- ... -->`) and AsciiDoc uses line comments (`// ...`) for slide controls and structure. Multiple commands can be combined with `;`. String values should be quoted (e.g. `"TitleLayout"`).
+
+*(Note: The examples below use Markdown HTML comment syntax `<!-- ... -->`. For AsciiDoc, replace `<!-- ` with `// ` and remove ` -->`).*
 
 | Command | Aliases | Example |
 |---|---|---|
@@ -55,9 +58,9 @@ Markdown uses HTML comments for slide controls and structure. Multiple commands 
 | `/split` | — | `<!-- /split -->` |
 
 - **Hidden text injection**: You can inject text into placeholders without it appearing in the Markdown preview. Pass a second argument to `ph` or use the `v` command. `\n` or `<br>` are converted to newlines. Example: `<!-- ph "Footer" "Line 1\nLine 2" -->`
-- **Slide logic**: `#`, `##`, `###` headings start new slides. `####` and deeper stay in the slide body.
+- **Slide logic**: For Markdown, `#`, `##`, `###` headings start new slides (`####` and deeper stay in body). For AsciiDoc, `=`, `==`, `===` start new slides (`====` and deeper stay in body).
 - **Alignment values**: `top`, `semi-top`, `normal`, `semi-bottom`, `bottom`.
-- **Split/Panel**: Use `<!-- split h -->` or `<!-- split v -->` to create multi-panel regions. Nested splits are not supported. The `style` property and weighted panel rendering are future work and NOT implemented.
+- **Split/Panel**: Use `<!-- split h -->` (Markdown) or `// split h` (AsciiDoc) to create multi-panel regions. Nested splits are not supported. The `style` property and weighted panel rendering are future work and NOT implemented.
 
 ## Authoring Workflow
 
@@ -71,9 +74,9 @@ Use the returned schema as the source of truth.
 
 ### Basic Workflow
 
-1. Generate an input file in YAML or Markdown.
-   - Prefer Markdown for simple text-first decks. Use YAML for complex structures.
-   - If the user provides custom formatting rules, automatically convert their intent to valid Markdown/YAML. Do not ask the user to rewrite their input first.
+1. Generate an input file in YAML, Markdown, or AsciiDoc.
+   - Prefer Markdown/AsciiDoc for simple text-first decks. Use YAML for complex structures.
+   - If the user provides custom formatting rules, automatically convert their intent to valid Markdown/YAML/AsciiDoc. Do not ask the user to rewrite their input first.
    - Do not modify project code unless the user explicitly asks.
 2. Inspect the parsed Deck model:
    ```powershell
