@@ -126,7 +126,7 @@ When a PowerPoint template is involved, always inspect it first:
 ### Document Structure & Typography
 
 You can control the overall deck typography and structure using YAML front matter (or Markdown `---` block):
-- `toc`: Set to `true` to automatically generate a Table of Contents slide.
+- `toc`: Set to `true` to automatically generate a Table of Contents slide. The TOC automatically excludes cover/title slides and indents items hierarchically based on the heading level of the source slide.
 - `toc_title`: Override the default "Table of Contents" title.
 - `indent`: Controls list hierarchy mapping in Markdown. How many spaces equal one list level (default: 2).
 - `footer`: Sets global footer text to be injected into the footer placeholders.

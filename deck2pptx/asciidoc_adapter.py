@@ -1,40 +1,78 @@
 import re
-import yaml
+import csv
 from pathlib import Path
-from .models import Deck, Slide, Text, BulletList, Image, Table, Gallery, Flow, FlowNode, FlowEdge
+from .models import (
+    Deck, Slide, Text, BulletList, ListItem, Image, Table, Gallery,
+    Flow, FlowNode, FlowEdge, Split, Panel, Mermaid, Comparison,
+    ComparisonColumn, Timeline, TimelineEvent, CodeBlock, Tree, TreeNode
+)
 
-def load_markdown(file_path: str | Path) -> Deck:
+def load_asciidoc(file_path: str | Path) -> Deck:
     with open(file_path, 'r', encoding='utf-8-sig') as f:
         content = f.read()
 
     deck = Deck()
     
-    # 1. Parse Front Matter
-    if content.startswith('---'):
-        parts = content.split('---', 2)
-        if len(parts) >= 3:
-            try:
-                fm = yaml.safe_load(parts[1]) or {}
-                deck.title = fm.get('title')
-                deck.orientation = fm.get('orientation', 'landscape')
-                deck.theme = fm.get('theme', 'default')
-                if 'toc' in fm:
-                    deck.toc = bool(fm['toc'])
-                if 'toc_title' in fm:
-                    deck.toc_title = fm['toc_title']
-                if 'indent' in fm:
-                    deck.indent = fm['indent']
-                deck.content_align = fm.get('content_align')
-                deck.footer = fm.get('footer')
-                if 'date' in fm:
-                    deck.date = str(fm['date'])
-            except:
-                pass
-            content = parts[2].lstrip()
+    lines = content.splitlines()
+    
+    # 1. Parse Metadata / Document Attributes
+    title_parsed = False
+    title_line = None
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if not line:
+            if title_parsed or deck.theme != 'default' or deck.footer or deck.date:
+                i += 1
+                break
+            i += 1
+            continue
             
-    def parse_html_comment(line):
+        if line.startswith('==') or line.startswith('==='):
+            break
+            
+        if line.startswith('=') and not line.startswith('=='):
+            deck.title = line.lstrip('=').strip()
+            title_parsed = True
+            title_line = lines[i]
+            i += 1
+            continue
+            
+        m = re.match(r'^:([^:]+):(.*)$', line)
+        if m:
+            key = m.group(1).strip().lower()
+            val = m.group(2).strip()
+            
+            if key == 'theme':
+                deck.theme = val
+            elif key == 'toc':
+                deck.toc = val.lower() not in ('false', 'no') if val else True
+            elif key == 'toc_title':
+                deck.toc_title = val
+            elif key == 'indent':
+                try:
+                    deck.indent = int(val)
+                except:
+                    pass
+            elif key == 'content_align':
+                deck.content_align = val
+            elif key == 'footer':
+                deck.footer = val
+            elif key == 'date':
+                deck.date = val
+            i += 1
+            continue
+            
+        break
+
+    body_lines = lines[i:]
+    if title_line:
+        body_lines.insert(0, title_line)
+    
+    # 2. Parse slide controls (comments)
+    def parse_asciidoc_comment(line):
         import shlex
-        m = re.match(r'^<!--(.*?)-->$', line.strip())
+        m = re.match(r'^//\s*(.*)$', line.strip())
         if not m: return []
         content = m.group(1).strip()
         
@@ -87,8 +125,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                 pass
         return parsed_cmds
 
-    # 2. Split into slides
-    lines = content.splitlines()
+    # 3. Split into slides
     slides_data = []
     current_slide_lines = []
     pending_layout = None
@@ -98,7 +135,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             slides_data.append((pending_layout, list(current_slide_lines)))
 
     def has_heading(lines):
-        return any(re.match(r'^(#{1,3})\s+', l) for l in lines)
+        return any(re.match(r'^={1,3}\s+', l) for l in lines)
 
     def layout_arg(args):
         if not args:
@@ -107,9 +144,9 @@ def load_markdown(file_path: str | Path) -> Deck:
             return args[0][1]
         return args[0]
 
-    for line in lines:
+    for line in body_lines:
         sline = line.strip()
-        cmds = parse_html_comment(sline)
+        cmds = parse_asciidoc_comment(sline)
         has_newpage = any(cmd == 'newpage' for cmd, _ in cmds)
         has_layout = any(cmd == 'layout' for cmd, _ in cmds)
         
@@ -137,11 +174,11 @@ def load_markdown(file_path: str | Path) -> Deck:
                         current_slide_lines = []
             continue
             
-        if re.match(r'^(#{1,3})\s+', line):
+        if re.match(r'^={1,3}\s+', line):
             if current_slide_lines:
                 has_content = False
                 for l in current_slide_lines:
-                    if l.strip() and not l.strip().startswith('<!--'):
+                    if l.strip() and not re.match(r'^//', l.strip()):
                         has_content = True
                         break
                 if not has_content:
@@ -166,16 +203,16 @@ def load_markdown(file_path: str | Path) -> Deck:
             
         title_line_idx = -1
         for idx, ln in enumerate(slide_lines):
-            if re.match(r'^(#{1,3})\s+', ln):
+            if re.match(r'^={1,3}\s+', ln):
                 title_line_idx = idx
-                if re.match(r'^##\s+', ln):
+                if re.match(r'^==\s+', ln):
                     section_counter += 1
                 break
         
         if title_line_idx >= 0:
-            match = re.match(r'^(#{1,3})\s+', slide_lines[title_line_idx])
+            match = re.match(r'^(=+)\s+', slide_lines[title_line_idx])
             level = len(match.group(1)) if match else 1
-            title = slide_lines[title_line_idx].lstrip('#').strip()
+            title = slide_lines[title_line_idx].lstrip('=').strip()
         else:
             title = ""
             level = 1
@@ -186,12 +223,15 @@ def load_markdown(file_path: str | Path) -> Deck:
         
         current_text = []
         current_bullets = []
-        current_table = []
         current_placeholder = None
         
         active_split = None
         active_panel = None
         active_gallery = None
+        
+        pending_table_attr = None
+        pending_block_type = None
+        pending_code_lang = None
         
         def get_target_list():
             if active_panel:
@@ -231,25 +271,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                 get_target_list().append(BulletList(items=list(current_bullets), placeholder=current_placeholder))
                 current_bullets.clear()
                 active_gallery = None
-                
-        def commit_table():
-            nonlocal active_gallery
-            if current_table:
-                headers = []
-                rows = []
-                if len(current_table) > 2 and '---' in current_table[1]:
-                    headers = [c.strip() for c in current_table[0].strip('|').split('|')]
-                    for r in current_table[2:]:
-                        if r.strip('|'):
-                            rows.append([c.strip() for c in r.strip('|').split('|')])
-                else:
-                    for r in current_table:
-                        if r.strip('|'):
-                            rows.append([c.strip() for c in r.strip('|').split('|')])
-                get_target_list().append(Table(headers=headers, rows=rows, placeholder=current_placeholder))
-                current_table.clear()
-                active_gallery = None
-                
+
         while i < len(slide_lines):
             if i == title_line_idx:
                 i += 1
@@ -258,7 +280,7 @@ def load_markdown(file_path: str | Path) -> Deck:
             raw_line = slide_lines[i]
             line = raw_line.strip()
             
-            cmds = parse_html_comment(line)
+            cmds = parse_asciidoc_comment(line)
             if cmds:
                 handled_line = False
                 for cmd, args in cmds:
@@ -277,7 +299,6 @@ def load_markdown(file_path: str | Path) -> Deck:
                             hidden_val = normalize_text_line(args[1])
                             commit_text()
                             commit_bullets()
-                            commit_table()
                             get_target_list().append(Text(content=hidden_val, placeholder=current_placeholder))
                             current_placeholder = None
                         handled_line = True
@@ -286,14 +307,12 @@ def load_markdown(file_path: str | Path) -> Deck:
                             hidden_val = normalize_text_line(args[0])
                             commit_text()
                             commit_bullets()
-                            commit_table()
                             get_target_list().append(Text(content=hidden_val, placeholder=current_placeholder))
                             current_placeholder = None
                         handled_line = True
                     elif cmd == 'gallery':
                         commit_text()
                         commit_bullets()
-                        commit_table()
                         cols = None
                         if args:
                             try:
@@ -306,8 +325,6 @@ def load_markdown(file_path: str | Path) -> Deck:
                     elif cmd == 'split':
                         commit_text()
                         commit_bullets()
-                        commit_table()
-                        from .models import Split, Panel
                         direction = 'horizontal'
                         if args:
                             arg = args[0]
@@ -323,8 +340,6 @@ def load_markdown(file_path: str | Path) -> Deck:
                     elif cmd == 'panel':
                         commit_text()
                         commit_bullets()
-                        commit_table()
-                        from .models import Panel
                         title_val = None
                         if args:
                             arg = args[0]
@@ -341,7 +356,6 @@ def load_markdown(file_path: str | Path) -> Deck:
                     elif cmd == '/split':
                         commit_text()
                         commit_bullets()
-                        commit_table()
                         active_split = None
                         active_panel = None
                         handled_line = True
@@ -352,233 +366,231 @@ def load_markdown(file_path: str | Path) -> Deck:
             if not line:
                 commit_text()
                 commit_bullets()
-                commit_table()
                 active_gallery = None
                 i += 1
                 continue
                 
-            # Table
-            if line.startswith('|') and line.endswith('|'):
-                commit_text()
-                commit_bullets()
-                current_table.append(line)
+            if re.match(r'^\.([^ \t].*)$', line):
                 i += 1
                 continue
-            else:
-                commit_table()
                 
-            # Bullets
-            if line.startswith('- ') or line.startswith('* '):
-                commit_text()
-                indent_spaces = len(raw_line) - len(raw_line.lstrip())
-                indent_size = deck.indent if deck.indent else 2
-                level = indent_spaces // indent_size
-                from .models import ListItem
-                current_bullets.append(ListItem(text=line[2:].strip(), level=level))
-                i += 1
-                continue
-            else:
-                commit_bullets()
-                
-            # Flow Block
-            if line.startswith('```flow'):
-                commit_text()
-                active_gallery = None
-                direction = 'horizontal'
-                if 'vertical' in line:
-                    direction = 'vertical'
-                
-                start_i = i
-                i += 1
-                nodes = []
-                edges = []
-                while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
-                    fl = slide_lines[i].strip()
-                    edge_match = re.search(r'(.+?)\s*-+>\s*(.+)', fl)
-                    if edge_match:
-                        edges.append(FlowEdge(from_node=edge_match.group(1).strip(), to_node=edge_match.group(2).strip()))
+            if line.startswith('[') and line.endswith(']'):
+                attr_content = line[1:-1].strip()
+                if 'format=' in attr_content or 'options=' in attr_content or '%header' in attr_content:
+                    pending_table_attr = attr_content
+                else:
+                    parts = [p.strip() for p in attr_content.split(',')]
+                    block_name = parts[0].lower()
+                    if block_name == 'source':
+                        pending_block_type = 'code'
+                        if len(parts) > 1:
+                            pending_code_lang = parts[1]
                     else:
-                        node_match = re.match(r'^([^\[\(\{]+?)\s*[\[\(\{](.+?)[\]\)\}]\s*$', fl)
-                        if node_match:
-                            nid = node_match.group(1).strip()
-                            nlabel = node_match.group(2).strip()
-                            if nlabel.startswith('"') and nlabel.endswith('"'):
-                                nlabel = nlabel[1:-1]
-                            nodes.append(FlowNode(id=nid, label=nlabel))
-                    i += 1
+                        pending_block_type = block_name
+                i += 1
+                continue
+
+            if line.startswith('----'):
+                commit_text()
+                commit_bullets()
+                active_gallery = None
                 
-                if nodes:
+                block_lines = []
+                i += 1
+                while i < len(slide_lines) and not slide_lines[i].strip().startswith('----'):
+                    block_lines.append(slide_lines[i])
+                    i += 1
+                i += 1
+                
+                if pending_block_type == 'flow':
+                    direction = 'horizontal'
+                    nodes = []
+                    edges = []
+                    for fl in block_lines:
+                        fl_strip = fl.strip()
+                        if not fl_strip: continue
+                        edge_match = re.search(r'(.+?)\s*-+>\s*(.+)', fl_strip)
+                        if edge_match:
+                            edges.append(FlowEdge(from_node=edge_match.group(1).strip(), to_node=edge_match.group(2).strip()))
+                        else:
+                            node_match = re.match(r'^([^\[\(\{]+?)\s*[\[\(\{](.+?)[\]\)\}]\s*$', fl_strip)
+                            if node_match:
+                                nid = node_match.group(1).strip()
+                                nlabel = node_match.group(2).strip()
+                                if nlabel.startswith('"') and nlabel.endswith('"'):
+                                    nlabel = nlabel[1:-1]
+                                nodes.append(FlowNode(id=nid, label=nlabel))
+                                
                     get_target_list().append(Flow(direction=direction, nodes=nodes, edges=edges, placeholder=current_placeholder))
-                else:
-                    from .models import CodeBlock
-                    raw_code = '\n'.join(slide_lines[start_i:i+1])
-                    get_target_list().append(CodeBlock(code=raw_code, placeholder=current_placeholder))
-                i += 1
-                continue
-                
-            # Mermaid Block
-            if line.startswith('```mermaid'):
-                commit_text()
-                active_gallery = None
-                start_i = i
-                i += 1
-                code_lines = []
-                while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
-                    code_lines.append(slide_lines[i])
-                    i += 1
-                
-                from .models import Mermaid
-                get_target_list().append(Mermaid(code='\n'.join(code_lines), placeholder=current_placeholder))
-                i += 1
-                continue
-                
-            # Comparison Block
-            if line.startswith('```comparison'):
-                comp_title = None
-                title_match = re.search(r'title="([^"]+)"', line)
-                if title_match:
-                    comp_title = title_match.group(1)
-                
-                commit_text()
-                active_gallery = None
-                start_i = i
-                i += 1
-                from .models import Comparison, ComparisonColumn
-                columns = []
-                current_col_label = None
-                current_col_items = []
-                while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
-                    cl = slide_lines[i].strip()
-                    if cl.endswith(':'):
-                        if current_col_label is not None:
-                            columns.append(ComparisonColumn(label=current_col_label, items=current_col_items))
-                        current_col_label = cl[:-1].strip()
-                        current_col_items = []
-                    elif cl.startswith('- ') or cl.startswith('* '):
-                        current_col_items.append(cl[2:].strip())
-                    i += 1
-                if current_col_label is not None:
-                    columns.append(ComparisonColumn(label=current_col_label, items=current_col_items))
-                if columns:
-                    get_target_list().append(Comparison(title=comp_title, columns=columns, placeholder=current_placeholder))
-                else:
-                    from .models import CodeBlock
-                    raw_code = '\n'.join(slide_lines[start_i:i+1])
-                    get_target_list().append(CodeBlock(code=raw_code, placeholder=current_placeholder))
-                i += 1
-                continue
-                
-            # Timeline Block
-            if line.startswith('```timeline'):
-                commit_text()
-                active_gallery = None
-                start_i = i
-                i += 1
-                from .models import Timeline, TimelineEvent
-                events = []
-                while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
-                    tl = slide_lines[i].strip()
-                    if ':' in tl:
-                        label, rest = tl.split(':', 1)
-                        title = rest.strip()
-                        desc = None
-                        if ' - ' in title:
-                            title, desc = title.split(' - ', 1)
-                        events.append(TimelineEvent(label=label.strip(), title=title.strip(), description=desc.strip() if desc else None))
-                    i += 1
-                if events:
+                    
+                elif pending_block_type == 'comparison':
+                    columns = []
+                    current_col_label = None
+                    current_col_items = []
+                    for cl in block_lines:
+                        cl_strip = cl.strip()
+                        if not cl_strip: continue
+                        if cl_strip.endswith(':'):
+                            if current_col_label is not None:
+                                columns.append(ComparisonColumn(label=current_col_label, items=current_col_items))
+                            current_col_label = cl_strip[:-1].strip()
+                            current_col_items = []
+                        elif cl_strip.startswith('- ') or cl_strip.startswith('* '):
+                            current_col_items.append(cl_strip[2:].strip())
+                            
+                    if current_col_label is not None:
+                        columns.append(ComparisonColumn(label=current_col_label, items=current_col_items))
+                    
+                    get_target_list().append(Comparison(title=None, columns=columns, placeholder=current_placeholder))
+                    
+                elif pending_block_type == 'timeline':
+                    events = []
+                    for tl in block_lines:
+                        tl_strip = tl.strip()
+                        if not tl_strip: continue
+                        if ':' in tl_strip:
+                            label, rest = tl_strip.split(':', 1)
+                            title = rest.strip()
+                            desc = None
+                            if ' - ' in title:
+                                title, desc = title.split(' - ', 1)
+                            events.append(TimelineEvent(label=label.strip(), title=title.strip(), description=desc.strip() if desc else None))
                     get_target_list().append(Timeline(events=events, placeholder=current_placeholder))
-                else:
-                    from .models import CodeBlock
-                    raw_code = '\n'.join(slide_lines[start_i:i+1])
-                    get_target_list().append(CodeBlock(code=raw_code, placeholder=current_placeholder))
-                i += 1
-                continue
-                
-            # CodeBlock
-            if line.startswith('```code'):
-                commit_text()
-                active_gallery = None
-                lang = line[7:].strip()
-                i += 1
-                from .models import CodeBlock
-                code_lines = []
-                while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
-                    code_lines.append(slide_lines[i])
-                    i += 1
-                get_target_list().append(CodeBlock(code='\n'.join(code_lines), language=lang if lang else None, placeholder=current_placeholder))
-                i += 1
-                continue
-                
-            # Tree Block
-            if line.startswith('```tree'):
-                commit_text()
-                active_gallery = None
-                start_i = i
-                i += 1
-                from .models import Tree, TreeNode
-                tree_lines = []
-                while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
-                    if slide_lines[i].strip():
-                        tree_lines.append(slide_lines[i])
-                    i += 1
+                    
+                elif pending_block_type == 'mermaid':
+                    get_target_list().append(Mermaid(code='\n'.join(block_lines), placeholder=current_placeholder))
+                    
+                elif pending_block_type == 'tree':
+                    tree_lines = [l for l in block_lines if l.strip()]
+                    positive_indents = [
+                        len(tl) - len(tl.lstrip())
+                        for tl in tree_lines
+                        if len(tl) - len(tl.lstrip()) > 0
+                    ]
+                    tree_indent_size = min(positive_indents) if positive_indents else (deck.indent if deck.indent else 2)
 
-                positive_indents = [
-                    len(tree_line) - len(tree_line.lstrip())
-                    for tree_line in tree_lines
-                    if len(tree_line) - len(tree_line.lstrip()) > 0
-                ]
-                tree_indent_size = min(positive_indents) if positive_indents else (deck.indent if deck.indent else 2)
-
-                nodes_by_level = {}
-                root = None
-                for raw_tree_line in tree_lines:
-                    indent_spaces = len(raw_tree_line) - len(raw_tree_line.lstrip())
-                    level = indent_spaces // tree_indent_size
-                    node = TreeNode(label=raw_tree_line.strip())
-                    nodes_by_level[level] = node
-                    if level == 0 and not root:
-                        root = node
-                    elif level > 0 and (level - 1) in nodes_by_level:
-                        nodes_by_level[level - 1].children.append(node)
-                if root:
-                    get_target_list().append(Tree(root=root, placeholder=current_placeholder))
+                    nodes_by_level = {}
+                    root = None
+                    for raw_tree_line in tree_lines:
+                        indent_spaces = len(raw_tree_line) - len(raw_tree_line.lstrip())
+                        level = indent_spaces // tree_indent_size
+                        node = TreeNode(label=raw_tree_line.strip())
+                        nodes_by_level[level] = node
+                        if level == 0 and not root:
+                            root = node
+                        elif level > 0 and (level - 1) in nodes_by_level:
+                            nodes_by_level[level - 1].children.append(node)
+                    if root:
+                        get_target_list().append(Tree(root=root, placeholder=current_placeholder))
+                        
                 else:
-                    from .models import CodeBlock
-                    raw_code = '\n'.join(slide_lines[start_i:i+1])
-                    get_target_list().append(CodeBlock(code=raw_code, placeholder=current_placeholder))
+                    get_target_list().append(CodeBlock(code='\n'.join(block_lines), language=pending_code_lang, placeholder=current_placeholder))
+                
+                pending_block_type = None
+                pending_code_lang = None
+                continue
+
+            if line.startswith('|==='):
+                commit_text()
+                commit_bullets()
+                active_gallery = None
+                
+                table_lines = []
+                i += 1
+                while i < len(slide_lines) and not slide_lines[i].strip().startswith('|==='):
+                    table_lines.append(slide_lines[i])
+                    i += 1
+                i += 1
+                
+                is_csv = False
+                has_header = True
+                
+                if pending_table_attr:
+                    is_csv = 'format="csv"' in pending_table_attr or "format='csv'" in pending_table_attr
+                    has_header = 'options="header"' in pending_table_attr or 'options=\'header\'' in pending_table_attr or '%header' in pending_table_attr
+                else:
+                    has_header = True
+                
+                headers = []
+                rows = []
+                
+                if is_csv:
+                    csv_data = [tl.strip() for tl in table_lines if tl.strip()]
+                    reader = csv.reader(csv_data)
+                    csv_rows = [r for r in reader if r]
+                    if csv_rows:
+                        if has_header:
+                            headers = [c.strip() for c in csv_rows[0]]
+                            rows = [[c.strip() for c in r] for r in csv_rows[1:]]
+                        else:
+                            rows = [[c.strip() for c in r] for r in csv_rows]
+                else:
+                    psv_rows = []
+                    current_row = []
+                    for p_line in table_lines:
+                        s_line = p_line.strip()
+                        if not s_line:
+                            if current_row:
+                                psv_rows.append(current_row)
+                                current_row = []
+                        elif s_line.startswith('|'):
+                            cells = [c.strip() for c in s_line[1:].split('|')]
+                            current_row.extend(cells)
+                    if current_row:
+                        psv_rows.append(current_row)
+                        
+                    psv_rows = [r for r in psv_rows if r]
+                    
+                    if psv_rows:
+                        if has_header:
+                            headers = psv_rows[0]
+                            rows = psv_rows[1:]
+                        else:
+                            rows = psv_rows
+                
+                get_target_list().append(Table(headers=headers, rows=rows, placeholder=current_placeholder))
+                pending_table_attr = None
+                continue
+
+            bullet_match = re.match(r'^(\*+|-+|\.+)\s+(.*)$', line)
+            if bullet_match:
+                commit_text()
+                bullet_chars = bullet_match.group(1)
+                text = bullet_match.group(2).strip()
+                level = len(bullet_chars) - 1
+                current_bullets.append(ListItem(text=text, level=level))
                 i += 1
                 continue
-                
-            # Image
-            img_match = re.match(r'^!\[(.*?)\]\((.*?)\)$', line)
+            else:
+                commit_bullets()
+
+            img_match = re.match(r'^image::?([^\[]+)\[(.*?)\]$', line)
             if img_match:
                 commit_text()
-                img_alt = img_match.group(1).strip()
-                img_src = img_match.group(2).strip()
-                caption = img_alt if img_alt else None
-                
+                img_src = img_match.group(1).strip()
+                caption_raw = img_match.group(2).strip()
+                caption = caption_raw.split(',')[0].strip() if caption_raw else None
+                if not caption:
+                    caption = None
+                    
                 if active_gallery and active_gallery.placeholder == current_placeholder:
                     active_gallery.images.append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
                 else:
                     get_target_list().append(Image(source=img_src, caption=caption, placeholder=current_placeholder))
                 i += 1
                 continue
-                
-            # Plain Text
+
             current_text.append(normalize_text_line(raw_line))
             i += 1
             
         commit_text()
         commit_bullets()
-        commit_table()
         
         if active_split:
-            raise ValueError(f"Slide '{title}': Unclosed Split detected. A <!-- split --> was started but never closed with <!-- /split -->.")
+            raise ValueError(f"Slide '{title}': Unclosed Split detected. A // split was started but never closed with // /split.")
         
         deck.slides.append(slide)
 
-    # Default layout hint for title slide if not explicitly set
     if deck.slides and deck.slides[0].title and not deck.slides[0].elements and not deck.slides[0].layout_hint:
         deck.slides[0].layout_hint = 'title'
 

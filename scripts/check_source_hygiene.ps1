@@ -16,8 +16,7 @@ $expected_generated = @(
     ".venv/",
     ".venv-release/",
     "__pycache__/",
-    "deck2pptx/__pycache__/",
-    "tests/__pycache__/",
+    ".pytest_cache/",
     ".pytest_cache/",
     "deck2pptx.egg-info/",
     "outputs/",
@@ -29,7 +28,8 @@ $operational_reference = @(
     "_sample/",
     "dual-model-operation-kit/",
     "examples/",
-    "Inputs/"
+    "Inputs/",
+    "Inspects/"
 )
 
 $statusOutput = git status --short --ignored
@@ -57,7 +57,7 @@ foreach ($line in $statusOutput) {
     
     $isGenerated = $false
     foreach ($gen in $expected_generated) {
-        if ($file.StartsWith($gen) -or $file -eq $gen) { $isGenerated = $true; break }
+        if ($file.StartsWith($gen) -or $file -eq $gen -or $file.Contains("__pycache__/")) { $isGenerated = $true; break }
     }
     
     $isOperational = $false

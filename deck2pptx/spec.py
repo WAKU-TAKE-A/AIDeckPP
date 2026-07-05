@@ -1,7 +1,7 @@
 def get_spec() -> dict:
     return {
         "description": "Deck to PPTX MVP Format Spec",
-        "concept": "The deck2pptx tool accepts YAML or Markdown input files. Both are only adapters; the canonical model is the Deck object.",
+        "concept": "The deck2pptx tool accepts YAML, Markdown, or AsciiDoc input files. These are only adapters; the canonical model is the Deck object.",
         "deck_metadata": {
             "title": "The presentation title (string).",
             "orientation": "'landscape' (default) or 'portrait'.",
@@ -19,12 +19,12 @@ def get_spec() -> dict:
         },
         "elements": {
             "description": "All elements support an optional `placeholder` field (string) to target PPTX placeholders.",
-            "text": "A simple text block (Markdown normal paragraph).",
-            "bullet_list": "A list of strings (Markdown `-` or `*` list).",
-            "image": "A relative path to an image file, or an object with `source` and `caption` (Markdown `![alt](path)` uses `alt` as caption).",
-            "table": "An object with `headers` and `rows` (Markdown tables with `|`).",
+            "text": "A simple text block (Markdown normal paragraph, or AsciiDoc block).",
+            "bullet_list": "A list of strings (Markdown `-`/`*` list, or AsciiDoc `*`/`-` list).",
+            "image": "A relative path to an image file, or an object with `source` and `caption`.",
+            "table": "An object with `headers` and `rows`.",
             "gallery": {
-                "description": "A grid of images (Markdown consecutive images).",
+                "description": "A grid of images.",
                 "fields": {
                     "images": "List of image objects or path strings.",
                     "rows": "Optional explicit row count (integer).",
@@ -74,7 +74,7 @@ def get_spec() -> dict:
                 }
             }
         },
-        "markdown_notes": "In Markdown, `#`, `##`, and `###` headings start new slides. Use quoted-string control comments such as `<!-- layout \"Name\" -->`, `<!-- subtitle \"Text\" -->`, `<!-- placeholder \"Name\" -->`, and `<!-- newpage \"LayoutName\" -->`; short forms `l`, `sub`, `ph`, and `new` are also supported. Multiple commands can be separated with `;`.\nUse `<!-- split h -->` or `<!-- split direction=h -->`, `<!-- panel \"Title\" -->` or `<!-- panel title=\"Title\" -->`, and `<!-- /split -->` to create multi-panel layouts.\nUse code blocks for business elements: ```comparison, ```timeline, ```code <lang>, ```tree.",
+        "markdown_notes": "In Markdown, `#`, `##`, and `###` headings start new slides. Use control comments. In AsciiDoc, `=`, `==`, `===` start slides, and `//` comments are used for controls. For business blocks, use `[block_name]` + `----` syntax.",
         "validation_rules": [
             "Deck orientation must be 'landscape' or 'portrait'.",
             "Image paths and gallery image paths must exist relative to the input file.",
@@ -91,7 +91,7 @@ def get_spec() -> dict:
             "Nested Split elements are not supported."
         ],
         "non_goals": [
-            "AsciiDoc adapter, Natural Language adapter.",
+            "Natural Language adapter.",
             "Full template/theme systems or broad visual redesigns.",
             "Manual coordinate specification (x, y, width, height) in the Deck model."
         ]

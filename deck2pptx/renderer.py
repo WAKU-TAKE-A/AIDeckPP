@@ -3,7 +3,7 @@ from pptx.util import Inches
 from pptx.enum.text import PP_ALIGN
 from pathlib import Path
 import re
-from .models import Deck, Slide, BulletList
+from .models import Deck, Slide, BulletList, ListItem
 from .layout import Layout, get_slide_layout_type
 from .theme import Theme
 
@@ -25,6 +25,11 @@ def _name_matches(actual_name: str, requested_name: str) -> bool:
 
 def _name_equals(actual_name: str, requested_name: str) -> bool:
     return actual_name.strip().casefold() == requested_name.strip().casefold()
+
+
+def _is_toc_layout(name: str) -> bool:
+    norm = re.sub(r'\s+', '', name).casefold()
+    return norm in ("toc", "tableofcontent", "tableofcontents")
 
 
 
@@ -82,15 +87,26 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
     if deck.toc:
         toc_title_text = deck.toc_title or "Table of Contents"
         toc_items = []
+        
+        def _is_cover(idx: int, slide: Slide) -> bool:
+            if idx != 0:
+                return False
+            ltype = get_slide_layout_type(slide).lower()
+            return "title" in ltype or "cover" in ltype
+
+        valid_slides = [s for i, s in enumerate(deck.slides) if not _is_cover(i, s) and s.title]
+        base_level = min([s.level for s in valid_slides]) if valid_slides else 1
+        
         for i, s in enumerate(deck.slides):
-            if i == 0 and get_slide_layout_type(s) == "title":
+            if _is_cover(i, s):
                 continue
             if s.title:
-                toc_items.append(s.title)
+                norm_level = max(0, s.level - base_level)
+                toc_items.append(ListItem(text=s.title, level=norm_level))
 
         toc_slide = Slide(
             title=toc_title_text,
-            layout_hint="Title and Content",
+            layout_hint="__TOC__",
             elements=[BulletList(items=toc_items)]
         )
 
@@ -104,7 +120,30 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
 
         # Determine layout
         slide_layout = None
-        if slide_model.layout_hint:
+        if slide_model.layout_hint == "__TOC__":
+            # Try to find TOC layout first
+            for ly in prs.slide_layouts:
+                if _is_toc_layout(ly.name):
+                    slide_layout = ly
+                    break
+            
+            # Set the placeholder for the TOC elements if a layout was found
+            if slide_layout:
+                target_ph = None
+                if any(_name_equals(p.name, "body") for p in slide_layout.placeholders):
+                    target_ph = "body"
+                
+                if target_ph:
+                    for el in slide_model.elements:
+                        if isinstance(el, BulletList):
+                            el.placeholder = target_ph
+            else:
+                # Fallback to standard logic for "Title and Content" if no TOC layout found
+                for ly in prs.slide_layouts:
+                    if _name_matches(ly.name, "Title and Content"):
+                        slide_layout = ly
+                        break
+        elif slide_model.layout_hint:
             # Try to find by name
             for ly in prs.slide_layouts:
                 if _name_matches(ly.name, slide_model.layout_hint):

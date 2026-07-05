@@ -10,6 +10,7 @@ from deck2pptx.adapters import load_deck
 from deck2pptx.layout import Layout
 from deck2pptx.models import Deck, Gallery, Image, Slide
 from deck2pptx.renderer import render_deck
+from deck2pptx.theme import Theme
 from deck2pptx.validation import ValidationError, validate_deck
 
 
@@ -171,4 +172,4 @@ def test_gallery_rendering_fits_images_and_captions_inside_content_area(tmp_path
 
     for caption in captions:
         assert caption.top + caption.height <= layout.content_y + layout.content_height
-        assert caption.text_frame.paragraphs[0].font.size.pt == 12
+        assert caption.text_frame.paragraphs[0].font.size.pt == Theme("default").font.size_body_extra_small.pt

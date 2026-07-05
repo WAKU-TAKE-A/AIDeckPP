@@ -373,9 +373,10 @@ def test_title_prefers_placeholder_named_title_over_title_type(tmp_path):
 def test_toc_rendering(tmp_path):
     # Create a deck with toc=True
     deck = Deck(title="Test", orientation="landscape", theme="default", toc=True, toc_title="Agenda")
+    cover = Slide(title="Cover", layout_hint="title")
     slide1 = Slide(title="Slide 1")
     slide2 = Slide(title="Slide 2")
-    deck.slides.extend([slide1, slide2])
+    deck.slides.extend([cover, slide1, slide2])
     
     output_path = tmp_path / "toc_output.pptx"
     render_deck(deck, str(output_path), base_dir=tmp_path)
@@ -383,8 +384,8 @@ def test_toc_rendering(tmp_path):
     assert output_path.exists()
     out_prs = Presentation(str(output_path))
     
-    # Should have 3 slides (Slide 1, Agenda, Slide 2) because render_deck injects TOC at index 1
-    assert len(out_prs.slides) == 3
+    # Should have 4 slides (Cover, Agenda, Slide 1, Slide 2) because render_deck injects TOC at index 1
+    assert len(out_prs.slides) == 4
     assert out_prs.slides[1].shapes.title.text == "Agenda"
     
     # The TOC slide should contain a BulletList with the titles of the other slides
@@ -400,7 +401,7 @@ def test_toc_rendering(tmp_path):
 def test_renderer_purity(tmp_path):
     # Regression test: render_deck must not mutate deck.slides when inserting TOC
     deck = Deck(title="Test Purity", orientation="landscape", theme="default", toc=True, toc_title="Agenda")
-    deck.slides.extend([Slide(title="Slide 1"), Slide(title="Slide 2")])
+    deck.slides.extend([Slide(title="Cover", layout_hint="title"), Slide(title="Slide 1"), Slide(title="Slide 2")])
     
     initial_slides_count = len(deck.slides)
     

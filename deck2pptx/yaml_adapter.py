@@ -21,7 +21,8 @@ def load_yaml(file_path: str | Path) -> Deck:
             subtitle=slide_data.get('subtitle'),
             notes=slide_data.get('notes'),
             layout_hint=slide_data.get('layout_hint'),
-            content_align=slide_data.get('content_align')
+            content_align=slide_data.get('content_align'),
+            level=slide_data.get('level', 1)
         )
         
         def _parse_element(elem_data):

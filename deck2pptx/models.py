@@ -129,6 +129,7 @@ class Slide:
     layout_hint: Optional[str] = None
     content_align: Optional[str] = None
     section_no: Optional[str] = None
+    level: int = 1
     elements: List[Element] = field(default_factory=list)
 
 @dataclass

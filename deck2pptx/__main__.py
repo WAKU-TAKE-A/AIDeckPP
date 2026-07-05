@@ -81,7 +81,7 @@ def main():
     p_inspect = subparsers.add_parser('inspect', help="Inspect input as normalized Deck")
     p_inspect.add_argument('input_file', help="Path to input YAML or MD file")
     p_inspect.add_argument('--format', dest="output_format", help="Output format (e.g. json)", default=None)
-    p_inspect.add_argument('--input-format', dest="format", help="Force input format (yaml or markdown)", default=None)
+    p_inspect.add_argument('--input-format', dest="format", choices=["yaml", "markdown", "asciidoc"], help="Force input format (yaml, markdown, or asciidoc)", default=None)
     p_inspect.set_defaults(func=inspect_cmd)
 
     # Inspect Template
@@ -95,7 +95,7 @@ def main():
     p_validate = subparsers.add_parser('validate', help="Validate an input deck")
     p_validate.add_argument('input_file', help="Path to input YAML or MD file")
     p_validate.add_argument('--format', dest="output_format", help="Output format (e.g. json)", default=None)
-    p_validate.add_argument('--input-format', dest="format", help="Force input format (yaml or markdown)", default=None)
+    p_validate.add_argument('--input-format', dest="format", choices=["yaml", "markdown", "asciidoc"], help="Force input format (yaml, markdown, or asciidoc)", default=None)
     p_validate.set_defaults(func=validate_cmd)
     
     # Build
@@ -103,7 +103,7 @@ def main():
     p_build.add_argument('input_file', help="Path to input YAML or MD file")
     p_build.add_argument('output_file', help="Path to output PPTX file")
     p_build.add_argument('--template', help="Path to PPTX template file to use for rendering", default=None)
-    p_build.add_argument('--input-format', dest="format", help="Force input format (yaml or markdown)", default=None)
+    p_build.add_argument('--input-format', dest="format", choices=["yaml", "markdown", "asciidoc"], help="Force input format (yaml, markdown, or asciidoc)", default=None)
     p_build.add_argument('--calib-first-slide', action='store_true', help="Use the first slide of the template for font height/width calibration")
     p_build.set_defaults(func=build_cmd)
     

@@ -21,7 +21,7 @@ The following paths are considered core source code and must be tracked in versi
 These paths represent generated outputs, cached data, or local environments. They are listed in `.gitignore` and will not fail hygiene checks:
 
 - `.venv/`, `.venv-release/` — Python virtual environments
-- `__pycache__/`, `deck2pptx/__pycache__/`, `tests/__pycache__/`
+- `__pycache__/` (すべてのサブディレクトリを含む)
 - `.pytest_cache/`
 - `deck2pptx.egg-info/`, `dist/`, `build/`
 - `outputs/` — Generated PPTX and PDF files
@@ -34,6 +34,7 @@ These directories contain working inputs, sample files, prompts, or legacy refer
 - `examples/` — Local sample inputs and assets
 - `_sample/` — Archived sample data
 - `dual-model-operation-kit/` — Meta-operational reference
+- `Inspects/` — Diagnostic tools
 
 ## Hygiene Rules
 
