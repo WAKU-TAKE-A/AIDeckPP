@@ -12,6 +12,7 @@ def load_asciidoc(file_path: str | Path) -> Deck:
         content = f.read()
 
     deck = Deck()
+    deck.input_format = "asciidoc"
     
     lines = content.splitlines()
     

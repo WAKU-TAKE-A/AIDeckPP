@@ -6,7 +6,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
     from ..render_utils import _set_text_frame_text
     ph = ctx.find_placeholder(getattr(element, 'placeholder', None))
     if ph and ph.has_text_frame:
-        _set_text_frame_text(ph.text_frame, element.content)
+        _set_text_frame_text(ph.text_frame, element.content, input_format=ctx.deck.input_format)
         return y
     else:
         target_x = ph.left if ph else x
@@ -26,6 +26,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
             font_name=ctx.theme.font.name,
             font_size=Pt(ctx.level_fonts[0]) if 0 in ctx.level_fonts else ctx.theme.font.size_body,
             font_color=ctx.theme.color.text,
+            input_format=ctx.deck.input_format
         )
         if not ph:
             return y + rendered_height + ctx.theme.layout.element_gap
@@ -43,7 +44,14 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
             level = item.level if is_li else 0
 
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = text
+            from ..text_utils import parse_inline_formatting
+            chunks = parse_inline_formatting(text, input_format=ctx.deck.input_format)
+            for chunk in chunks:
+                run = p.add_run()
+                run.text = chunk.text
+                if chunk.bold: run.font.bold = True
+                if chunk.italic: run.font.italic = True
+            
             if level > 0: p.level = level
 
             font_size = ctx.level_fonts.get(level)
@@ -69,10 +77,21 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
             bullet_chars = ctx.theme.bullet.bullet_chars
             bullet_char = bullet_chars[min(level, len(bullet_chars) - 1)]
             indent = " " * (ctx.theme.bullet.fallback_indent_spaces * level)
-            formatted_text = f"{indent}{bullet_char} {text}"
+            prefix = f"{indent}{bullet_char} "
 
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = formatted_text
+            from ..text_utils import parse_inline_formatting
+            chunks = parse_inline_formatting(text, input_format=ctx.deck.input_format)
+            
+            run_prefix = p.add_run()
+            run_prefix.text = prefix
+            
+            for chunk in chunks:
+                run = p.add_run()
+                run.text = chunk.text
+                if chunk.bold: run.font.bold = True
+                if chunk.italic: run.font.italic = True
+                
             p.font.name = ctx.theme.font.name
             p.space_before = Pt(0)
             p.space_after = Pt(0)

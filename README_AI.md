@@ -31,6 +31,11 @@ The `Deck` model is canonical.
   - `Tree`: ` ```tree ` block for hierarchical structures
   - `Split`: a multi-panel layout splitting the slide area `horizontal` or `vertical`.
 
+**Supported inline formatting elements** (applied within paragraphs and lists):
+  - **Bold**: `**text**` in Markdown (or `**te**xt**` for in-word emphasis); `*text*` in AsciiDoc (or `**te**xt**`).
+  - **Italic**: `*text*` in Markdown; `_text_` in AsciiDoc (or `__te__xt__`).
+  - **Bold Italic**: `***text***` in Markdown; `*_text_*` in AsciiDoc.
+
 *Note on Mermaid*:
 - Mermaid diagrams (`` `mermaid ``) require the Mermaid CLI (`mmdc`) to render. If not installed or misconfigured, the renderer automatically falls back to rendering the raw code inside a `CodeBlock` to prevent crashes.
 - `` `flow `` blocks are rendered natively as PowerPoint auto-shapes and do NOT require the Mermaid CLI.
@@ -61,6 +66,52 @@ Markdown uses HTML comments (`<!-- ... -->`) and AsciiDoc uses line comments (`/
 - **Slide logic**: For Markdown, `#`, `##`, `###` headings start new slides (`####` and deeper stay in body). For AsciiDoc, `=`, `==`, `===` start new slides (`====` and deeper stay in body).
 - **Alignment values**: `top`, `semi-top`, `normal`, `semi-bottom`, `bottom`.
 - **Split/Panel**: Use `<!-- split h -->` (Markdown) or `// split h` (AsciiDoc) to create multi-panel regions. Nested splits are not supported. The `style` property and weighted panel rendering are future work and NOT implemented.
+
+## CLI Commands & Arguments Reference
+
+The CLI entrypoint is `deck2pptx` (run via `python -m deck2pptx`).
+
+### 1. `explain-spec`
+Outputs the AI-facing model schema.
+- **Usage**: `python -m deck2pptx explain-spec [options]`
+- **Arguments**:
+  - `--format FORMAT`: Output format (e.g. `json`). If omitted, prints human-readable text.
+
+### 2. `inspect`
+Inspects and parses the input file, outputting the normalized Deck model representation.
+- **Usage**: `python -m deck2pptx inspect [options] <input_file>`
+- **Arguments**:
+  - `input_file` (positional, required): Path to input YAML, Markdown, or AsciiDoc file.
+  - `--format FORMAT`: Output format (e.g. `json`).
+  - `--input-format {yaml,markdown,asciidoc}`: Force the parser to interpret the input as the specified format (bypasses filename extension auto-detection).
+
+### 3. `inspect-template`
+Inspects layouts, placeholder names, and type IDs inside a PowerPoint template.
+- **Usage**: `python -m deck2pptx inspect-template [options] <template_file>`
+- **Arguments**:
+  - `template_file` (positional, required): Path to the template `.pptx` file.
+  - `--format {json,text}`: Output format (default: `text`).
+  - `--calib`: Also extract and output calibration metrics (font size heights and CPI) from the first slide.
+
+### 4. `validate`
+Validates the structure of the input file against the model schema.
+- **Usage**: `python -m deck2pptx validate [options] <input_file>`
+- **Arguments**:
+  - `input_file` (positional, required): Path to input YAML, Markdown, or AsciiDoc file.
+  - `--format FORMAT`: Output format (e.g. `json`).
+  - `--input-format {yaml,markdown,asciidoc}`: Force the input parser format.
+
+### 5. `build`
+Generates the final `.pptx` presentation from the input file.
+- **Usage**: `python -m deck2pptx build [options] <input_file> <output_file>`
+- **Arguments**:
+  - `input_file` (positional, required): Path to input YAML, Markdown, or AsciiDoc file.
+  - `output_file` (positional, required): Path to save the generated `.pptx` file.
+  - `--template TEMPLATE`: Path to a PPTX template file to use for rendering.
+  - `--input-format {yaml,markdown,asciidoc}`: Force the input parser format.
+  - `--calib-first-slide`: Extract physical typography calibration metrics (cpi/height) from the first slide of the template for dynamic textbox auto-wrapping.
+
+---
 
 ## Authoring Workflow
 

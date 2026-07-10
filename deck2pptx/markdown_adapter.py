@@ -8,6 +8,7 @@ def load_markdown(file_path: str | Path) -> Deck:
         content = f.read()
 
     deck = Deck()
+    deck.input_format = "markdown"
     
     # 1. Parse Front Matter
     if content.startswith('---'):

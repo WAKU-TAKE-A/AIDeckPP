@@ -135,6 +135,7 @@ class Slide:
 @dataclass
 class Deck:
     title: Optional[str] = None
+    input_format: str = "markdown"
     orientation: str = "landscape"
     theme: str = "default"
     toc: bool = False
