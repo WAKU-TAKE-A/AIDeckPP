@@ -66,9 +66,13 @@ def render_bullet(element, ctx: SlideContext, x, y, w, h) -> float:
             text = item.text if is_li else str(item)
             level = item.level if is_li else 0
 
+            bullet_chars = ctx.theme.bullet.bullet_chars
+            bullet_char = bullet_chars[min(level, len(bullet_chars) - 1)]
+            indent = " " * (ctx.theme.bullet.fallback_indent_spaces * level)
+            formatted_text = f"{indent}{bullet_char} {text}"
+
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = text
-            if level > 0: p.level = level
+            p.text = formatted_text
             p.font.name = ctx.theme.font.name
             p.space_before = Pt(0)
             p.space_after = Pt(0)

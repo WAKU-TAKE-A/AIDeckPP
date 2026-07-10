@@ -119,6 +119,8 @@ class BulletTheme:
         self.indent_per_level = _f(cp, s, "indent_per_level")
         self.level_weight_default = _f(cp, s, "level_weight_default")
         self.level_weight_indented = _f(cp, s, "level_weight_indented")
+        self.bullet_chars = [c.strip() for c in _s(cp, s, "bullet_chars").split(",")]
+        self.fallback_indent_spaces = _i(cp, s, "fallback_indent_spaces")
 
 
 class ImageTheme:
