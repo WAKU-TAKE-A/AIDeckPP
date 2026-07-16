@@ -63,4 +63,4 @@ def inspect_calibration(pptx_path: str):
         for fs, metrics in calibrated_metrics.items():
             print(f"Font size {fs}pt -> height: {metrics['height']} EMU, CPI: {metrics['cpi']:.2f}")
     else:
-        print("\nNo valid multi-line calibration data found for AiDeckCore standard.")
+        print("\nNo valid multi-line calibration data found for AIDeckPP standard.")

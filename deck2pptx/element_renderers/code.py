@@ -1,4 +1,4 @@
-from pptx.util import Inches
+from pptx.util import Inches, Pt
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from ..render_context import SlideContext
@@ -10,12 +10,21 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
     width = ph.width if ph else w
     caption_height = ctx.theme.code.caption_height
 
+    # Determine font sizes based on level_fonts[0] if available
+    if ctx.level_fonts and 0 in ctx.level_fonts:
+        calib_size = Pt(ctx.level_fonts[0])
+        caption_font_size = calib_size
+        code_font_size = calib_size
+    else:
+        caption_font_size = ctx.theme.font.size_body_semi_small
+        code_font_size = ctx.theme.font.size_body_small
+
     if element.caption or element.language:
         tb = ctx.slide.shapes.add_textbox(start_x, start_y, width, caption_height)
         p = tb.text_frame.paragraphs[0]
         p.text = element.caption if element.caption else f"Language: {element.language}"
         p.font.name = ctx.theme.font.name
-        p.font.size = ctx.theme.font.size_body_semi_small
+        p.font.size = caption_font_size
         p.font.italic = True
         start_y += caption_height
 
@@ -32,7 +41,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
     p = tf.paragraphs[0]
     p.text = element.code
     p.font.name = ctx.theme.font.name_code
-    p.font.size = ctx.theme.font.size_body_small
+    p.font.size = code_font_size
     p.font.color.rgb = ctx.theme.color.text
     p.alignment = PP_ALIGN.LEFT
 

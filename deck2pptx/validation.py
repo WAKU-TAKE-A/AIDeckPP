@@ -132,6 +132,17 @@ def validate_deck(deck: Deck, base_dir: str | Path):
                         "element_type": "CodeBlock",
                         "field": "code"
                     })
+            elif type(element).__name__ == 'Quote':
+                if not element.text or not element.text.strip():
+                    errors.append({
+                        "code": "invalid_quote",
+                        "message": f"Slide {slide_idx+1}: Quote element must have text content.",
+                        "slide_index": slide_idx,
+                        "slide_title": slide_title,
+                        "element_index": elem_idx,
+                        "element_type": "Quote",
+                        "field": "text"
+                    })
             elif type(element).__name__ == 'Tree':
                 if not element.root:
                     errors.append({

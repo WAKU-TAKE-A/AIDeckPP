@@ -19,12 +19,15 @@ def _remove_existing_slides(prs):
         slide_id_list.remove(slide_id)
 
 def _name_matches(actual_name: str, requested_name: str) -> bool:
-    actual = actual_name.strip().casefold()
-    requested = requested_name.strip().casefold()
+    actual = actual_name.replace('_', '').strip().casefold()
+    requested = requested_name.replace('_', '').strip().casefold()
     return bool(requested) and actual.startswith(requested)
 
+
 def _name_equals(actual_name: str, requested_name: str) -> bool:
-    return actual_name.strip().casefold() == requested_name.strip().casefold()
+    actual = actual_name.replace('_', '').strip().casefold()
+    requested = requested_name.replace('_', '').strip().casefold()
+    return actual == requested
 
 
 def _is_toc_layout(name: str) -> bool:

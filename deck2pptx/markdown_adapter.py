@@ -72,7 +72,7 @@ def load_markdown(file_path: str | Path) -> Deck:
                 if cmd_name in ('l', 'layout'): cmd_name = 'layout'
                 elif cmd_name in ('sub', 'subtitle'): cmd_name = 'subtitle'
                 elif cmd_name in ('ph', 'place', 'placeholder'): cmd_name = 'placeholder'
-                elif cmd_name in ('new', 'new_page', 'newpage'): cmd_name = 'newpage'
+                elif cmd_name in ('new', 'new_page', 'newpage', 'n'): cmd_name = 'newpage'
                 elif cmd_name in ('align', 'content_align', 'valign'): cmd_name = 'content_align'
                 elif cmd_name in ('gal', 'gallery'): cmd_name = 'gallery'
                 
@@ -551,6 +551,40 @@ def load_markdown(file_path: str | Path) -> Deck:
                 i += 1
                 continue
                 
+            # Plain CodeBlock
+            if line.startswith('```'):
+                commit_text()
+                active_gallery = None
+                i += 1
+                from .models import CodeBlock
+                code_lines = []
+                while i < len(slide_lines) and not slide_lines[i].strip().startswith('```'):
+                    code_lines.append(slide_lines[i])
+                    i += 1
+                get_target_list().append(CodeBlock(code='\n'.join(code_lines), language=None, placeholder=current_placeholder))
+                i += 1
+                continue
+                
+            # Quote Block
+            if line.startswith('>'):
+                commit_text()
+                commit_bullets()
+                commit_table()
+                active_gallery = None
+                
+                quote_lines = []
+                while i < len(slide_lines) and slide_lines[i].startswith('>'):
+                    ql = slide_lines[i]
+                    if ql.startswith('> '):
+                        quote_lines.append(ql[2:])
+                    else:
+                        quote_lines.append(ql[1:])
+                    i += 1
+                
+                from .models import Quote
+                get_target_list().append(Quote(text='\n'.join(quote_lines), placeholder=current_placeholder))
+                continue
+
             # Image
             img_match = re.match(r'^!\[(.*?)\]\((.*?)\)$', line)
             if img_match:

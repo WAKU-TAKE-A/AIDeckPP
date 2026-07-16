@@ -6,7 +6,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import MSO_AUTO_SIZE
 
-from .models import Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock, Mermaid, Tree, Comparison, Timeline
+from .models import Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock, Mermaid, Tree, Comparison, Timeline, Quote
 from .text_utils import count_rendered_lines
 from .theme import Theme
 
@@ -114,6 +114,11 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
         caption_h = theme.code.caption_height if (getattr(element, 'caption', None) or getattr(element, 'language', None)) else 0
         return caption_h + box_h
 
+    if isinstance(element, Quote):
+        lines = len(element.text.splitlines()) if element.text else 1
+        box_h = Inches(lines * theme.code.line_height_factor + theme.code.height_padding)
+        return box_h
+
     if isinstance(element, Mermaid):
         from . import mermaid_handler
         if mermaid_handler.has_mermaid_cli():
@@ -191,7 +196,7 @@ def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, c
         _estimate_element_height(e, content_width, calibrated_metrics, theme, level_fonts, calibrated_heights) + theme.layout.element_gap
         for e in future_elements
         if getattr(e, 'placeholder', None) is None and (
-            isinstance(e, (Text, BulletList, CodeBlock, Tree, Comparison, Timeline)) or (isinstance(e, Mermaid) and not has_mmdc)
+            isinstance(e, (Text, BulletList, CodeBlock, Tree, Comparison, Timeline, Quote)) or (isinstance(e, Mermaid) and not has_mmdc)
         )
     )
 

@@ -26,7 +26,8 @@ The `Deck` model is canonical.
   - `Flow`: simple flowchart (` ```flow `)
   - `Comparison`: ` ```comparison title="Title" ` block with columns labeled by `Label:` and `- item` lists (title is optional)
   - `Timeline`: ` ```timeline ` block with `Date: Title - Description`
-  - `CodeBlock`: ` ```code python ` block for source code
+  - `CodeBlock`: ` ```code python ` block for source code. Plain ` ``` ` (Markdown) and `++++` (AsciiDoc) represent a code block with no language specified (rendered with no caption/language header).
+  - `Quote`: Blockquote element. Generated from lines starting with `>` in Markdown, or `[quote]` + `____` block in AsciiDoc. Renders with a vertical gray line (`#999999`) on the left border, regular font, and no caption header.
   - `Mermaid`: ` ```mermaid ` block for advanced flowcharts and diagrams
   - `Tree`: ` ```tree ` block for hierarchical structures
   - `Split`: a multi-panel layout splitting the slide area `horizontal` or `vertical`.
@@ -111,6 +112,35 @@ Generates the final `.pptx` presentation from the input file.
   - `--input-format {yaml,markdown,asciidoc}`: Force the input parser format.
   - `--calib-first-slide`: Extract physical typography calibration metrics (cpi/height) from the first slide of the template for dynamic textbox auto-wrapping.
 
+## Environment Setup
+
+If you are asked to set up the local environment, follow these steps in Windows PowerShell from the repository root:
+
+### 1. Create repo-local Virtual Environment
+Create the `.venv` directory, upgrade `pip`, and install the package dependencies in editable mode:
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e . pytest python-pptx pyyaml pillow
+```
+
+To activate this virtual environment in active shell sessions:
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+### 2. Mermaid CLI Setup (Required for Mermaid diagram rendering)
+If the user requests to render ` ```mermaid ` blocks, set up the Mermaid CLI and headless browser:
+```powershell
+# Install Mermaid CLI globally
+npm install -g @mermaid-js/mermaid-cli
+
+# Install Chrome Headless Shell for Puppeteer (Windows PowerShell requires npx.cmd)
+npx.cmd puppeteer browsers install chrome-headless-shell@148.0.7778.97
+```
+
+*(Note: Natively supported ` ```flow ` blocks do NOT require the Mermaid CLI or Node.js).*
+
 ---
 
 ## Authoring Workflow
@@ -165,8 +195,9 @@ When a PowerPoint template is involved, always inspect it first:
    ```powershell
    .\.venv\Scripts\python.exe -m deck2pptx build input.md output.pptx --template template.pptx
    ```
-   **Calibration Flag**: If the user asks for exact text wrapping and bounding box heights based on the template's typography (e.g., matching the font heights and line spacing exactly), append the `--calib-first-slide` flag. This flag extracts physical dimension metrics from the text frames on the 1st slide of the template.
-   ```powershell
+    **Calibration Flag**: If the user asks for exact text wrapping and bounding box heights based on the template's typography (e.g., matching the font heights and line spacing exactly), append the `--calib-first-slide` flag. This flag extracts physical dimension metrics from the text frames on the 1st slide of the template.
+    - *Note on CodeBlock and Quote*: When calibration is active, both `CodeBlock` (without caption/language) and `Quote` are rendered using the calibrated Level 0 font size (`level_fonts[0]`). If calibration is not active or Level 0 size is not found, they fall back to the theme default `size_body_small`.
+    ```powershell
    .\.venv\Scripts\python.exe -m deck2pptx build input.md output.pptx --template template.pptx --calib-first-slide
    ```
    **Placeholder Resolution & Fallback**:

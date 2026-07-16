@@ -110,7 +110,7 @@ def load_asciidoc(file_path: str | Path) -> Deck:
                 if cmd_name in ('l', 'layout'): cmd_name = 'layout'
                 elif cmd_name in ('sub', 'subtitle'): cmd_name = 'subtitle'
                 elif cmd_name in ('ph', 'place', 'placeholder'): cmd_name = 'placeholder'
-                elif cmd_name in ('new', 'new_page', 'newpage'): cmd_name = 'newpage'
+                elif cmd_name in ('new', 'new_page', 'newpage', 'n'): cmd_name = 'newpage'
                 elif cmd_name in ('align', 'content_align', 'valign'): cmd_name = 'content_align'
                 elif cmd_name in ('gal', 'gallery'): cmd_name = 'gallery'
                 
@@ -389,6 +389,38 @@ def load_asciidoc(file_path: str | Path) -> Deck:
                     else:
                         pending_block_type = block_name
                 i += 1
+                continue
+
+            if line.startswith('____'):
+                commit_text()
+                commit_bullets()
+                active_gallery = None
+                
+                block_lines = []
+                i += 1
+                while i < len(slide_lines) and not slide_lines[i].strip().startswith('____'):
+                    block_lines.append(slide_lines[i])
+                    i += 1
+                i += 1
+                
+                from .models import Quote
+                get_target_list().append(Quote(text='\n'.join(block_lines), placeholder=current_placeholder))
+                pending_block_type = None
+                continue
+
+            if line.startswith('++++'):
+                commit_text()
+                commit_bullets()
+                active_gallery = None
+                
+                block_lines = []
+                i += 1
+                while i < len(slide_lines) and not slide_lines[i].strip().startswith('++++'):
+                    block_lines.append(slide_lines[i])
+                    i += 1
+                i += 1
+                
+                get_target_list().append(CodeBlock(code='\n'.join(block_lines), language=None, placeholder=current_placeholder))
                 continue
 
             if line.startswith('----'):

@@ -1,6 +1,6 @@
 from ..models import (Text, BulletList, Image, Gallery, Table,
-                      Flow, Comparison, Timeline, CodeBlock, Mermaid, Tree, Split)
-from . import text, image, table, flow, tree, mermaid, code, comparison, split
+                      Flow, Comparison, Timeline, CodeBlock, Mermaid, Tree, Split, Quote)
+from . import text, image, table, flow, tree, mermaid, code, comparison, split, quote
 
 def render_element(element, ctx, x, y, w, h) -> float:
     if isinstance(element, Text):         return text.render(element, ctx, x, y, w, h)
@@ -15,4 +15,5 @@ def render_element(element, ctx, x, y, w, h) -> float:
     if isinstance(element, Split):        return split.render(element, ctx, x, y, w, h)
     if isinstance(element, Comparison):   return comparison.render(element, ctx, x, y, w, h)
     if isinstance(element, Timeline):     return comparison.render_timeline(element, ctx, x, y, w, h)
+    if isinstance(element, Quote):        return quote.render(element, ctx, x, y, w, h)
     return y  # unknown: no-op

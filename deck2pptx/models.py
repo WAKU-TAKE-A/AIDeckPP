@@ -119,7 +119,13 @@ class Split:
     placeholder: Optional[str] = None
     height_hint: Optional[float] = None
 
-Element = Union[Text, BulletList, Image, Table, Gallery, Flow, Comparison, Timeline, CodeBlock, Mermaid, Tree, Split]
+@dataclass
+class Quote:
+    text: str
+    placeholder: Optional[str] = None
+    height_hint: Optional[float] = None
+
+Element = Union[Text, BulletList, Image, Table, Gallery, Flow, Comparison, Timeline, CodeBlock, Mermaid, Tree, Split, Quote]
 
 @dataclass
 class Slide:
