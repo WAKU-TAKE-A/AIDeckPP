@@ -11,9 +11,11 @@ AI フレンドリーな CLI を目指しています。
 - 詳細なリリース確認: `docs/release-verification.md`
 - ソース管理方針: `docs/source-baseline.md`
 
-## 環境作成
+## 環境構築
 
-PowerShell でリポジトリ直下に移動して、repo-local の仮想環境を作成します。
+### 仮想環境のセットアップ
+
+リポジトリ直下に移動して、仮想環境を作成します。
 
 ```powershell
 python -m venv .venv
@@ -21,16 +23,13 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e . pytest python-pptx pyyaml pillow
 ```
 
-通常の作業では、この `.venv` を使ってください。
+通常の作業では、この `.venv` を使ってくだい。
 
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
+### Mermaid のセットアップ
 
-### Mermaid の描画セットアップ
+`mermaid` ブロックを画像としてスライドに埋め込むには、システムに **Mermaid CLI (`mmdc`)** および Puppeteer 用のブラウザが必要です。
 
-`` `mermaid `` ブロックを画像としてスライドに埋め込むには、システムに **Mermaid CLI (`mmdc`)** および Puppeteer 用のブラウザが必要です。
-*(※ `` `flow `` ブロックは内部エンジンによって PowerPoint の標準図形として描画されるため、外部の CLI やブラウザは不要です。)*
+(※ `flow` ブロックは内部エンジンによって PowerPoint の標準図形として描画されるため、外部の CLI やブラウザは不要です。)
 
 1. **Mermaid CLI のグローバルインストール**:
    ```powershell
@@ -41,22 +40,25 @@ python -m venv .venv
    ```powershell
    npx.cmd puppeteer browsers install chrome-headless-shell@148.0.7778.97
    ```
-   *(※ Windows PowerShell 上では実行ポリシーの関係上、`npx` の代わりに `npx.cmd` を明示して呼び出す必要があります。)*
+   (※ Windows PowerShell 上では実行ポリシーの関係上、`npx` の代わりに `npx.cmd` を明示して呼び出す必要があります。)
 
-*※ Mermaid CLI がインストールされていない環境では、エラーや強制終了せず、ソースコードが自動的に `CodeBlock` （黒背景枠付きのデバッグ用テキスト）としてスライド上にフォールバック描画されます。*
+※ Mermaid CLI がインストールされていない環境では、エラーや強制終了せず、ソースコードが自動的に `CodeBlock` （黒背景枠付きのデバッグ用テキスト）としてスライド上にフォールバック描画されます。
 
-## 使い方
+## エージェントへの指示の仕方
 
-環境が構築できたら、AIエージェントに以下のように指示してみてください。
+まず、「 `README.md` と `README_AI.md` を理解してください。」と指示します。
 
-1. `README.md` と `README_AI.md` を理解してください。
-2. 「変換したいファイル.md」を、テンプレート「テンプレート.pptx」で変換してください。
+### 環境構築
 
-## CLIコマンドの概要
+「環境構築してください。」と指示します。
+
+### 変換
+
+「sample.md を、テンプレート template.pptx で変換してください。」と指示します。
+
+### CLIコマンドの概要
 
 CLIのメインエントリポイントは `deck2pptx` です（`python -m deck2pptx` で呼び出し）。以下、概要。
-
-基本は、AI が利用します。
 
 ### 1. `explain-spec`
 AI向けのモデルスキーマ（JSONなど）を出力します。
