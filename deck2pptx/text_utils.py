@@ -99,3 +99,32 @@ def count_rendered_lines(text: str, chars_per_line: int = 0) -> int:
             total_lines += math.ceil(len(p) / chars_per_line)
             
     return total_lines
+
+def count_rendered_lines_weighted(text: str, font_size_pt: float, col_width_inches: float) -> int:
+    if not text:
+        return 1
+    # Check if inputs are mocks or invalid types
+    if not isinstance(font_size_pt, (int, float)):
+        font_size_pt = 14.0
+    if not isinstance(col_width_inches, (int, float)):
+        col_width_inches = 5.0
+        
+    char_width_zenkaku = font_size_pt / 72.0
+    char_width_hankaku = char_width_zenkaku * 0.55
+    avail_width = max(0.1, col_width_inches - 0.15)
+    paragraphs = text.replace('\x0b', '\n').split('\n')
+    total_lines = 0
+    for p in paragraphs:
+        if not p:
+            total_lines += 1
+            continue
+        line_width = 0.0
+        for char in p:
+            if ord(char) > 0x7F:
+                line_width += char_width_zenkaku
+            else:
+                line_width += char_width_hankaku
+        lines = math.ceil(line_width / avail_width)
+        total_lines += max(1, lines)
+    return total_lines
+

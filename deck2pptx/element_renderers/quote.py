@@ -3,6 +3,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 from ..render_context import SlideContext
+from ..text_utils import count_rendered_lines_weighted
 
 def render(element, ctx: SlideContext, x, y, w, h) -> float:
     ph = ctx.find_placeholder(getattr(element, 'placeholder', None))
@@ -16,9 +17,19 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
     else:
         font_size = ctx.theme.font.size_body_small
 
-    line_count = len(element.text.splitlines()) if element.text else 1
-    # height calculation is identical to CodeBlock (without caption)
-    box_height = Inches(line_count * ctx.theme.code.line_height_factor + ctx.theme.code.height_padding)
+    col_width_inches = width / 914400.0
+    
+    # Left border line width
+    line_w = ctx.theme.timeline.line_width if hasattr(ctx.theme, 'timeline') else Inches(0.05)
+    line_w_inches = line_w / 914400.0
+    
+    # Left margin is line_w + 0.1", Right margin is 0.1" (total 0.2" + line_w)
+    avail_width = col_width_inches - (line_w_inches + 0.2)
+    
+    fs_pt = font_size.pt if hasattr(font_size, 'pt') else float(font_size)
+    
+    lines = count_rendered_lines_weighted(element.text if element.text else "", fs_pt, avail_width)
+    box_height = Inches(lines * ctx.theme.code.line_height_factor + ctx.theme.code.height_padding)
 
     # 1. Background Rectangle
     shape = ctx.slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, start_x, start_y, width, box_height)
@@ -38,7 +49,6 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
 
     # 3. Left Border Line
     # Width equals timeline line_width
-    line_w = ctx.theme.timeline.line_width if hasattr(ctx.theme, 'timeline') else Inches(0.05)
     line_h = box_height
     line_x = start_x
     line_y = start_y

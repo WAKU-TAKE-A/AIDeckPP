@@ -272,13 +272,23 @@ def render_deck(deck: Deck, output_path: str, base_dir: Path = Path('.'), templa
             elif val in ('semi-bottom', 'low'): y_offset = theme.layout.align_offset_small
             elif val in ('bottom',): y_offset = theme.layout.align_offset_large
 
+        # Determine the effective content bottom limit based on footers
+        total_bottom_y = layout.content_y + layout.content_height
+        limit_y_list = []
+        if footer_ph and deck.footer is not None:
+            limit_y_list.append(footer_ph.top)
+        if slide_no_ph:
+            limit_y_list.append(slide_no_ph.top)
+        if limit_y_list:
+            total_bottom_y = min(limit_y_list) - theme.layout.element_gap
+
         current_y = layout.content_y + y_offset
         content_x = layout.content_x
         for idx_el, element in enumerate(slide_model.elements):
             ph = find_placeholder(getattr(element, "placeholder", None))
             adj_h = layout.content_height if ph else get_adjusted_height(
                 slide_model.elements, idx_el,
-                layout.content_y + layout.content_height,
+                total_bottom_y,
                 current_y, layout.content_width,
                 calibrated_metrics=ctx.calibrated_metrics, theme=ctx.theme, level_fonts=ctx.level_fonts, calibrated_heights=ctx.calibrated_heights
             )

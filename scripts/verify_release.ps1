@@ -43,7 +43,7 @@ This deck verifies Markdown input.
 
 # 1. Test from existing venv
 Write-Host "`n--- Running Pytest ---"
-& .\.venv\Scripts\python.exe -m pytest
+& .\.venv\Scripts\python.exe -m pytest --basetemp=outputs\pytest-tmp
 Assert-Success "Pytest"
 
 Write-Host "`n--- Verifying AI Authoring Quality Gate Commands ---"
@@ -51,9 +51,9 @@ Write-Host "`n--- Verifying AI Authoring Quality Gate Commands ---"
 Assert-Success "explain-spec"
 & .\.venv\Scripts\python.exe -m deck2pptx explain-spec --format json
 Assert-Success "explain-spec json"
-& .\.venv\Scripts\python.exe -m deck2pptx inspect $sampleYaml --format json
+& .\.venv\Scripts\python.exe -m Inspects.main inspect $sampleYaml --format json
 Assert-Success "inspect yaml"
-& .\.venv\Scripts\python.exe -m deck2pptx inspect $sampleMd --format json
+& .\.venv\Scripts\python.exe -m Inspects.main inspect $sampleMd --format json
 Assert-Success "inspect md"
 & .\.venv\Scripts\python.exe -m deck2pptx validate $sampleYaml --format json
 Assert-Success "validate yaml"

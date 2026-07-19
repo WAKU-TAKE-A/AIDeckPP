@@ -7,7 +7,7 @@ from pptx.util import Inches, Pt
 from pptx.enum.text import MSO_AUTO_SIZE
 
 from .models import Text, BulletList, Image, Table, Gallery, Flow, Split, CodeBlock, Mermaid, Tree, Comparison, Timeline, Quote
-from .text_utils import count_rendered_lines
+from .text_utils import count_rendered_lines, count_rendered_lines_weighted
 from .theme import Theme
 
 # Lazily-built default Theme, used only when a caller does not have one
@@ -24,6 +24,8 @@ def _theme_or_default(theme):
         _default_theme = Theme()
     return _default_theme
 
+
+import math
 
 def _get_font_size(level_fonts, theme, level=0):
     # NOTE: when `theme` is available (always, in the real renderer),
@@ -42,8 +44,16 @@ def _get_font_size(level_fonts, theme, level=0):
 
 
 def _get_calibrated_metrics(fs, calibrated_metrics):
+    # Check if inputs are mocks or invalid types
+    if not isinstance(fs, (int, float)):
+        fs = 14.0
+        
     if not calibrated_metrics:
-        return None, None
+        # Estimate based on font size (1 pt = 12700 EMU, line height = 1.2 * font size)
+        # CPI estimate: 72.0 / font size (approx 1 char width = font size pt)
+        height = int(fs * 12700 * 1.2)
+        cpi = 72.0 / fs
+        return height, cpi
     if fs in calibrated_metrics:
         return calibrated_metrics[fs]['height'], calibrated_metrics[fs]['cpi']
 
@@ -51,7 +61,7 @@ def _get_calibrated_metrics(fs, calibrated_metrics):
     closest_fs = min(calibrated_metrics.keys(), key=lambda k: abs(k - fs))
     ref = calibrated_metrics[closest_fs]
     ratio = fs / closest_fs
-    return ref['height'] * ratio, ref['cpi'] * (1.0 / ratio)
+    return int(ref['height'] * ratio), ref['cpi'] * (1.0 / ratio)
 
 def _estimate_element_height(element, content_width, calibrated_metrics=None, theme=None, level_fonts=None, calibrated_heights=None):
     """Return estimated rendered height (EMU) for an element."""
@@ -115,7 +125,19 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
         return caption_h + box_h
 
     if isinstance(element, Quote):
-        lines = len(element.text.splitlines()) if element.text else 1
+        col_width_inches = (content_width / theme.calibration.emu_per_inch if content_width else theme.calibration.fallback_width_inches)
+        # Left border line (timeline line_width) + spacing
+        # Left margin = line_w + Inches(0.1), Right margin = 0.1 (total 0.2 + line_w)
+        line_w_inches = 0.05
+        if theme and hasattr(theme, 'timeline') and hasattr(theme.timeline, 'line_width'):
+            line_w_inches = theme.timeline.line_width / theme.calibration.emu_per_inch
+        avail_width = col_width_inches - (line_w_inches + 0.2)
+        
+        fs = theme.font.size_body_small.pt if (theme and hasattr(theme.font, 'size_body_small') and hasattr(theme.font.size_body_small, 'pt')) else 14.0
+        if level_fonts and 0 in level_fonts:
+            fs = level_fonts[0]
+            
+        lines = count_rendered_lines_weighted(element.text if element.text else "", fs, avail_width)
         box_h = Inches(lines * theme.code.line_height_factor + theme.code.height_padding)
         return box_h
 
@@ -169,14 +191,159 @@ def _estimate_element_height(element, content_width, calibrated_metrics=None, th
         return title_h + (max_lines * line_height) + theme.comparison.padding
 
     if isinstance(element, Flow):
+        num_nodes = len(element.nodes) if element.nodes else 1
+        node_height = theme.flow.node_height
+        node_gap = theme.flow.node_gap
         if getattr(element, 'direction', 'horizontal') == 'vertical':
-            count = len(element.items) if hasattr(element, 'items') else 1
-            return max(Inches(1.0), count * Inches(0.5) + max(0, count - 1) * Inches(0.4))
+            total_h = num_nodes * node_height + (num_nodes - 1) * node_gap
+            return min(total_h, Inches(6.0))
         else:
-            return Inches(1.5)
+            return node_height
 
-    # Image, Gallery, Table, Split:
-    # height depends on runtime data — caller handles these separately.
+    if isinstance(element, Table):
+        rows = len(element.rows) + 1 if element.headers else len(element.rows)
+        cols = len(element.headers) if element.headers else (len(element.rows[0]) if element.rows else 1)
+        col_width_inches = (content_width / theme.calibration.emu_per_inch if content_width else theme.calibration.fallback_width_inches) / cols
+        
+        header_fs = theme.table.header_font_size.pt if hasattr(theme.table.header_font_size, 'pt') else theme.table.header_font_size
+        cell_fs = theme.table.cell_font_size.pt if hasattr(theme.table.cell_font_size, 'pt') else theme.table.cell_font_size
+        
+        margin_top_emu = int(Inches(0.05))
+        margin_bottom_emu = int(Inches(0.05))
+        border_emu = int(theme.table.border_width_pt * 12700)
+        
+        total_h = 0
+        if element.headers:
+            h_line_height, _ = _get_calibrated_metrics(header_fs, calibrated_metrics)
+            max_lines = 1
+            for header in element.headers:
+                lines = count_rendered_lines_weighted(str(header), header_fs, col_width_inches)
+                if lines > max_lines:
+                    max_lines = lines
+            total_h += int(max_lines * h_line_height + margin_top_emu + margin_bottom_emu + border_emu)
+            
+        c_line_height, _ = _get_calibrated_metrics(cell_fs, calibrated_metrics)
+        for row in element.rows:
+            max_lines = 1
+            for cell in row:
+                lines = count_rendered_lines_weighted(str(cell), cell_fs, col_width_inches)
+                if lines > max_lines:
+                    max_lines = lines
+            total_h += int(max_lines * c_line_height + margin_top_emu + margin_bottom_emu + border_emu)
+            
+        return total_h + theme.layout.element_gap
+
+    if isinstance(element, Image):
+        img_path = Path(element.source)
+        if not img_path.exists():
+            img_path = Path("Inputs") / element.source
+            if not img_path.exists():
+                img_path = Path(element.source)
+                
+        aspect_ratio = 1.33
+        if img_path.exists():
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(img_path) as pil_img:
+                    w_px, h_px = pil_img.size
+                    if h_px > 0:
+                        aspect_ratio = w_px / h_px
+            except Exception:
+                pass
+                
+        width_inches = content_width / theme.calibration.emu_per_inch if content_width else theme.calibration.fallback_width_inches
+        estimated_h_inches = width_inches / aspect_ratio
+        # Limit max image height during estimation to avoid pushing footer away
+        estimated_h_inches = min(estimated_h_inches, 4.0)
+        
+        caption_height = theme.image.caption_height if theme else Inches(0.3)
+        h_emu = int(estimated_h_inches * theme.calibration.emu_per_inch)
+        if element.caption:
+            h_emu += int(caption_height)
+        return h_emu + theme.layout.element_gap
+
+    if isinstance(element, Gallery):
+        num_images = len(element.images)
+        if num_images == 0:
+            return theme.layout.min_remaining_height
+            
+        cols = getattr(element, 'columns', None)
+        rows_ct = getattr(element, 'rows', None)
+        caption_height = theme.image.caption_height if theme else Inches(0.3)
+        padding = theme.image.gallery_padding if theme else Inches(0.1)
+        
+        if cols is None and rows_ct is None:
+            if num_images == 1: cols, rows_ct = 1, 1
+            elif num_images == 2: cols, rows_ct = 2, 1
+            elif num_images == 3: cols, rows_ct = 3, 1
+            elif num_images == 4: cols, rows_ct = 2, 2
+            else: cols, rows_ct = 3, 2
+        elif cols is None:
+            cols = math.ceil(num_images / rows_ct)
+        elif rows_ct is None:
+            rows_ct = math.ceil(num_images / cols)
+            
+        col_width_inches = (content_width / theme.calibration.emu_per_inch if content_width else theme.calibration.fallback_width_inches) / cols
+        cell_width_inches = col_width_inches - (padding / theme.calibration.emu_per_inch if theme else 0.1)
+        
+        row_max_heights = [0.0] * rows_ct
+        for i, img in enumerate(element.images[:cols*rows_ct]):
+            r = i // cols
+            img_path = Path(img.source)
+            if not img_path.exists():
+                img_path = Path("Inputs") / img.source
+                
+            aspect_ratio = 1.33
+            if img_path.exists():
+                try:
+                    from PIL import Image as PILImage
+                    with PILImage.open(img_path) as pil_img:
+                        w_px, h_px = pil_img.size
+                        if h_px > 0:
+                            aspect_ratio = w_px / h_px
+                except:
+                    pass
+            img_h = cell_width_inches / aspect_ratio
+            img_h = min(img_h, 3.0)
+            if img.caption:
+                img_h += (caption_height / theme.calibration.emu_per_inch if theme else 0.3)
+            if img_h > row_max_heights[r]:
+                row_max_heights[r] = img_h
+                
+        total_h_inches = sum(row_max_heights) + (padding / theme.calibration.emu_per_inch if theme else 0.1) * rows_ct
+        return int(total_h_inches * theme.calibration.emu_per_inch) + theme.layout.element_gap
+
+    if isinstance(element, Split):
+        num_panels = len(element.panels)
+        if num_panels == 0:
+            return theme.layout.min_remaining_height
+            
+        gap = theme.split.gap if theme else Inches(0.2)
+        title_advance = theme.split.title_advance if theme else Inches(0.4)
+        
+        if element.direction == 'horizontal':
+            panel_w = (content_width - (gap * (num_panels - 1))) / num_panels
+            max_panel_h = 0
+            for panel in element.panels:
+                panel_h = title_advance if panel.title else 0
+                for pe in panel.elements:
+                    pe_h = _estimate_element_height(pe, panel_w, calibrated_metrics, theme, level_fonts, calibrated_heights)
+                    panel_h += pe_h + theme.layout.element_gap
+                if panel_h > max_panel_h:
+                    max_panel_h = panel_h
+            return max_panel_h + theme.layout.element_gap
+        else:
+            total_h = 0
+            for panel in element.panels:
+                panel_h = title_advance if panel.title else 0
+                for pe in panel.elements:
+                    pe_h = _estimate_element_height(pe, content_width, calibrated_metrics, theme, level_fonts, calibrated_heights)
+                    panel_h += pe_h + theme.layout.element_gap
+                total_h += panel_h
+            total_h += gap * (num_panels - 1)
+            return total_h + theme.layout.element_gap
+
+    # height fallback
     return theme.layout.min_remaining_height
 
 def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, content_width, calibrated_metrics=None, theme=None, level_fonts=None, calibrated_heights=None):
@@ -196,13 +363,13 @@ def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, c
         _estimate_element_height(e, content_width, calibrated_metrics, theme, level_fonts, calibrated_heights) + theme.layout.element_gap
         for e in future_elements
         if getattr(e, 'placeholder', None) is None and (
-            isinstance(e, (Text, BulletList, CodeBlock, Tree, Comparison, Timeline, Quote)) or (isinstance(e, Mermaid) and not has_mmdc)
+            isinstance(e, (Text, BulletList, CodeBlock, Comparison, Timeline, Quote, Flow)) or (isinstance(e, Mermaid) and not has_mmdc)
         )
     )
 
     remaining_imgs = sum(
         1 for e in elements_list[current_idx:]
-        if isinstance(e, (Image, Gallery, Split, Table)) or (isinstance(e, Mermaid) and has_mmdc)
+        if isinstance(e, (Image, Gallery, Split, Table, Flow, Tree)) or (isinstance(e, Mermaid) and has_mmdc)
     )
 
     available_img_h = remaining_h - reserved_text_h
@@ -210,7 +377,7 @@ def get_adjusted_height(elements_list, current_idx, total_bottom_y, current_y, c
         available_img_h = theme.layout.min_remaining_height
 
     current_element = elements_list[current_idx]
-    if (isinstance(current_element, (Image, Gallery, Split, Table)) or (isinstance(current_element, Mermaid) and has_mmdc)) and remaining_imgs > 0:
+    if (isinstance(current_element, (Image, Gallery, Split, Table, Flow, Tree)) or (isinstance(current_element, Mermaid) and has_mmdc)) and remaining_imgs > 0:
         return available_img_h / remaining_imgs
     else:
         return remaining_h

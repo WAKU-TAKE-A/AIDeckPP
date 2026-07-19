@@ -1,7 +1,8 @@
 import argparse
 import sys
+import json
 
-from Inspects.layout_inspector import inspect_layouts
+from Inspects.template_inspector import inspect_template
 from Inspects.shape_inspector import inspect_shapes
 from Inspects.calib_inspector import inspect_calibration
 from Inspects.compare_inspector import inspect_compare
@@ -10,9 +11,17 @@ def main():
     parser = argparse.ArgumentParser(description="Universal PPTX Inspection Tool")
     subparsers = parser.add_subparsers(dest="command", help="Inspection command to run")
 
-    # Command: layouts
-    parser_layouts = subparsers.add_parser("layouts", help="Inspect slide layouts and placeholders")
-    parser_layouts.add_argument("file", help="Path to the PPTX file")
+    # Command: inspect
+    parser_inspect = subparsers.add_parser("inspect", help="Inspect input as normalized Deck")
+    parser_inspect.add_argument("input_file", help="Path to input YAML or MD file")
+    parser_inspect.add_argument("--format", dest="output_format", help="Output format (e.g. json)", default=None)
+    parser_inspect.add_argument("--input-format", dest="format", choices=["yaml", "markdown", "asciidoc"], help="Force input format (yaml, markdown, or asciidoc)", default=None)
+
+    # Command: inspect-template
+    parser_inspect_tmpl = subparsers.add_parser("inspect-template", help="Inspect PPTX template layouts and placeholders")
+    parser_inspect_tmpl.add_argument("file", help="Path to the PPTX template file")
+    parser_inspect_tmpl.add_argument("--format", choices=["json", "text"], default="text", help="Output format")
+    parser_inspect_tmpl.add_argument("--calib", action="store_true", help="Also extract and output calibration metrics from the first slide")
 
     # Command: shapes
     parser_shapes = subparsers.add_parser("shapes", help="Inspect shapes on slides")
@@ -31,8 +40,22 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command == "layouts":
-        inspect_layouts(args.file)
+    if args.command == "inspect":
+        from deck2pptx.adapters import load_deck
+        from dataclasses import asdict
+        try:
+            deck = load_deck(args.input_file, format=args.format)
+            data = asdict(deck)
+            # Default output is JSON, matching original deck2pptx inspect command behavior
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+        except Exception as e:
+            if getattr(args, 'output_format', None) == 'json':
+                print(json.dumps({"ok": False, "errors": [{"message": str(e)}]}, indent=2, ensure_ascii=False), file=sys.stderr)
+            else:
+                print(f"Inspect failed: {e}", file=sys.stderr)
+            sys.exit(1)
+    elif args.command == "inspect-template":
+        inspect_template(args.file, args.format, args.calib)
     elif args.command == "shapes":
         inspect_shapes(args.file, search_text=args.search, slide_idx=args.slide)
     elif args.command == "calib":

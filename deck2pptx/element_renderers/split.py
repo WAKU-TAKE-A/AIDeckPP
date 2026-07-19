@@ -37,7 +37,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
                 if pe_ph:
                     render_element(pe, ctx, pe_ph.left, pe_ph.top, pe_ph.width, pe_ph.height)
                 else:
-                    end_y = render_element(pe, ctx, px, end_y, panel_w, target_h - (py - target_y))
+                    end_y = render_element(pe, ctx, px, end_y, panel_w, target_h - (end_y - target_y))
             if end_y > max_bottom:
                 max_bottom = end_y
         if not ph:

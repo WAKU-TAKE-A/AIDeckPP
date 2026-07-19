@@ -8,6 +8,7 @@ $expected_source = @(
     "LICENSE",
     "README.md",
     "README_AI.md",
+    "ReferenceSheet.md",
     "pyproject.toml",
     ".gitignore"
 )

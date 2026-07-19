@@ -25,21 +25,28 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
             if element.caption:
                 max_h -= caption_height
 
+            # Constrain to minimum safety dimensions
+            max_h = max(int(914400 * 0.5), max_h)
+            max_w = max(int(914400 * 0.5), max_w)
+
+            # Pre-calculate precise scale using Pillow to avoid python-pptx fallback bugs
             try:
-                pic = ctx.slide.shapes.add_picture(str(img_path), target_x, target_y)
-                native_w = pic.width
-                native_h = pic.height
+                from PIL import Image as PILImage
+                with PILImage.open(img_path) as pil_img:
+                    w_px, h_px = pil_img.size
+                native_w = w_px * 9525
+                native_h = h_px * 9525
                 scale = min(max_w / native_w, max_h / native_h, 1.0)
                 new_w = int(native_w * scale)
                 new_h = int(native_h * scale)
-                pic.width = new_w
-                pic.height = new_h
-            except:
-                pic = ctx.slide.shapes.add_picture(str(img_path), target_x, target_y, width=max_w)
-                new_w = pic.width
-                new_h = pic.height
+            except Exception:
+                new_w = max_w
+                new_h = max_h
+
+            pic = ctx.slide.shapes.add_picture(str(img_path), target_x, target_y, width=new_w, height=new_h)
+
             if element.caption:
-                tb = ctx.slide.shapes.add_textbox(target_x, target_y + (new_h if new_h else pic.height), new_w, caption_height)
+                tb = ctx.slide.shapes.add_textbox(target_x, target_y + new_h, new_w, caption_height)
                 p = tb.text_frame.paragraphs[0]
                 p.text = element.caption
                 p.font.name = ctx.theme.font.name
@@ -50,7 +57,7 @@ def render(element, ctx: SlideContext, x, y, w, h) -> float:
             if not ph:
                 rendered_height = getattr(element, 'height_hint', None)
                 if rendered_height is None:
-                    rendered_height = (new_h if new_h else pic.height) + (caption_height if element.caption else 0)
+                    rendered_height = new_h + (caption_height if element.caption else 0)
                 return y + rendered_height + ctx.theme.layout.element_gap
             return y
     except Exception as e:
@@ -83,6 +90,9 @@ def render_gallery(element, ctx: SlideContext, x, y, w, h) -> float:
 
     cell_width = (ph.width if ph else w) / cols
     cell_height = (ph.height if ph else h) / rows_ct
+    start_y = ph.top if ph else y
+
+    max_bottom_y = start_y
 
     for i, img in enumerate(element.images[:cols*rows_ct]):
         r = i // cols
@@ -104,28 +114,34 @@ def render_gallery(element, ctx: SlideContext, x, y, w, h) -> float:
             new_w = int(native_w * scale)
             new_h = int(native_h * scale)
 
-            center_x = int(cell_x + (cell_width - new_w) / 2)
-            center_y = int(cell_y + (cell_height - new_h - (caption_height if img.caption else 0)) / 2)
+            # Align top-left instead of centering within the cell (preserving padding)
+            left_x = int(cell_x + padding / 2)
+            top_y = int(cell_y + padding / 2)
 
-            pic.left = center_x
-            pic.top = center_y
+            pic.left = left_x
+            pic.top = top_y
             pic.width = new_w
             pic.height = new_h
 
+            bottom_y = top_y + new_h
             if img.caption:
-                tb = ctx.slide.shapes.add_textbox(cell_x, center_y + new_h, cell_width, caption_height)
+                tb = ctx.slide.shapes.add_textbox(left_x, top_y + new_h, new_w, caption_height)
                 p = tb.text_frame.paragraphs[0]
                 p.text = img.caption
                 p.font.name = ctx.theme.font.name
                 p.font.size = ctx.theme.font.size_body_extra_small
                 p.alignment = PP_ALIGN.CENTER
                 p.font.color.rgb = ctx.theme.color.text_light
+                bottom_y += caption_height
+                
+            if bottom_y > max_bottom_y:
+                max_bottom_y = bottom_y
         except Exception as e:
             print(f"Failed to load image {img_path}: {e}")
 
     if not ph:
         rendered_height = getattr(element, 'height_hint', None)
         if rendered_height is None:
-            rendered_height = cell_height * rows_ct
+            rendered_height = max_bottom_y - start_y
         return y + rendered_height + ctx.theme.layout.element_gap
     return y

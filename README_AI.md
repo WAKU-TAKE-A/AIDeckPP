@@ -22,14 +22,14 @@ The `Deck` model is canonical.
   - `BulletList`: generated from `-` or `*`
   - `Table`: standard Markdown tables
   - `Image`: `![alt](path)` (automatically preserves alt text as a caption)
-  - `Gallery`: explicit grid layout of multiple images using `<!-- gallery [cols] -->` (e.g. `<!-- gallery 3 -->`).
-  - `Flow`: simple flowchart (` ```flow `)
+  - `Gallery`: explicit grid layout of multiple images using `<!-- gallery [cols] -->` (e.g. `<!-- gallery 3 -->`). Images are aligned Left-Top within grid cells to maintain a neat grid when images stop expanding at 1.0x native size. Captions also align and size dynamically to the image width.
+  - `Flow`: simple flowchart (` ```flow `). Supports dynamic auto-scaling of node widths, heights, and gaps (arrows) to fit slide boundaries. In vertical mode, arrow thickness is scaled x1.5, arrow height is scaled x0.8, and arrows are centered between nodes.
   - `Comparison`: ` ```comparison title="Title" ` block with columns labeled by `Label:` and `- item` lists (title is optional)
   - `Timeline`: ` ```timeline ` block with `Date: Title - Description`
   - `CodeBlock`: ` ```code python ` block for source code. Plain ` ``` ` (Markdown) and `++++` (AsciiDoc) represent a code block with no language specified (rendered with no caption/language header).
   - `Quote`: Blockquote element. Generated from lines starting with `>` in Markdown, or `[quote]` + `____` block in AsciiDoc. Renders with a vertical gray line (`#999999`) on the left border, regular font, and no caption header.
   - `Mermaid`: ` ```mermaid ` block for advanced flowcharts and diagrams
-  - `Tree`: ` ```tree ` block for hierarchical structures
+  - `Tree`: ` ```tree ` block for hierarchical structures. Automatically scales node widths, heights, and vertical/horizontal gaps dynamically based on tree depth and leaf counts to fit slide boundaries.
   - `Split`: a multi-panel layout splitting the slide area `horizontal` or `vertical`.
 
 **Supported inline formatting elements** (applied within paragraphs and lists):
@@ -78,23 +78,7 @@ Outputs the AI-facing model schema.
 - **Arguments**:
   - `--format FORMAT`: Output format (e.g. `json`). If omitted, prints human-readable text.
 
-### 2. `inspect`
-Inspects and parses the input file, outputting the normalized Deck model representation.
-- **Usage**: `python -m deck2pptx inspect [options] <input_file>`
-- **Arguments**:
-  - `input_file` (positional, required): Path to input YAML, Markdown, or AsciiDoc file.
-  - `--format FORMAT`: Output format (e.g. `json`).
-  - `--input-format {yaml,markdown,asciidoc}`: Force the parser to interpret the input as the specified format (bypasses filename extension auto-detection).
-
-### 3. `inspect-template`
-Inspects layouts, placeholder names, and type IDs inside a PowerPoint template.
-- **Usage**: `python -m deck2pptx inspect-template [options] <template_file>`
-- **Arguments**:
-  - `template_file` (positional, required): Path to the template `.pptx` file.
-  - `--format {json,text}`: Output format (default: `text`).
-  - `--calib`: Also extract and output calibration metrics (font size heights and CPI) from the first slide.
-
-### 4. `validate`
+### 2. `validate`
 Validates the structure of the input file against the model schema.
 - **Usage**: `python -m deck2pptx validate [options] <input_file>`
 - **Arguments**:
@@ -102,7 +86,7 @@ Validates the structure of the input file against the model schema.
   - `--format FORMAT`: Output format (e.g. `json`).
   - `--input-format {yaml,markdown,asciidoc}`: Force the input parser format.
 
-### 5. `build`
+### 3. `build`
 Generates the final `.pptx` presentation from the input file.
 - **Usage**: `python -m deck2pptx build [options] <input_file> <output_file>`
 - **Arguments**:
@@ -111,6 +95,24 @@ Generates the final `.pptx` presentation from the input file.
   - `--template TEMPLATE`: Path to a PPTX template file to use for rendering.
   - `--input-format {yaml,markdown,asciidoc}`: Force the input parser format.
   - `--calib-first-slide`: Extract physical typography calibration metrics (cpi/height) from the first slide of the template for dynamic textbox auto-wrapping.
+
+## Auto-Layout, Dynamic Scaling & Bounding Box Constraints
+
+The layout engine automatically scales and constrains elements to fit slides cleanly and avoid overlaps:
+
+### 1. Footer & Slide Number Avoidance
+The renderer dynamically detects the `Top` coordinates of `footer` and `slideno` placeholders for the current slide. It constraints the available slide height (`total_bottom_y`) to ensure no elements overlap with the footer region.
+
+### 2. Flowchart & Tree Scaling
+* **Horizontal Flow/Tree**: If the maximum nodes or depth exceeds the slide width, the engine dynamically compresses node widths and horizontal gaps (while maintaining a safety margin of at least 0.5" for nodes and 0.15" for gaps).
+* **Vertical Flow/Tree**: If the height exceeds the slide height, the engine prioritizes maintaining the default node height while compressing the vertical gaps. If gaps hit their minimum safety limit (0.1" - 0.15"), it then safely scales down the node heights to ensure containment.
+* **Arrow Sizing in Vertical Flow**: In vertical flowcharts, arrows are customized to be thicker (width x1.5) and shorter (length x0.8) and are centered between nodes.
+
+### 3. Height Integration in Layout Engine
+Both `Flow` and `Tree` are registered as dynamic height-allocation elements in `get_adjusted_height`. If other elements (like Text or Comparison) are placed after them on the same slide, their required heights are reserved beforehand, and the remaining available height is passed to the Flow/Tree elements to trigger appropriate scaling.
+
+### 4. Gallery Alignment
+Gallery items are aligned Left-Top within their grid cell area (instead of centering). If a gallery image reaches its original size (1.0x) and stops expanding, it sits neatly at the top-left of the cell with equal padding. Caption text boxes also snap to the actual image width and start at the image's Left coordinate.
 
 ## Environment Setup
 
@@ -161,7 +163,7 @@ Use the returned schema as the source of truth.
    - Do not modify project code unless the user explicitly asks.
 2. Inspect the parsed Deck model:
    ```powershell
-   .\.venv\Scripts\python.exe -m deck2pptx inspect your_file.md --format json
+   .\.venv\Scripts\python.exe -m Inspects.main inspect your_file.md --format json
    ```
 3. Validate:
    ```powershell
@@ -179,7 +181,7 @@ When a PowerPoint template is involved, always inspect it first:
 
 1. **Inspect the Template**
    ```powershell
-   .\.venv\Scripts\python.exe -m deck2pptx inspect-template template.pptx --format json
+   .\.venv\Scripts\python.exe -m Inspects.main inspect-template template.pptx --format json
    ```
    This reveals the exact layout names and placeholder names available.
 
@@ -227,13 +229,22 @@ For Flow, define nodes and edges using supported IDs. Always validate because ed
 
 To inspect templates, outputs, or calibrated metrics, use the universal `Inspects` package. This package consolidates all older individual debug scripts into a structured CLI.
 
-### 1. Slide Master Layouts & Placeholders
-Inspects layout structures, placeholder names, and type IDs:
+### 1. Inspect Input Files as Normalized Deck
+Inspects and parses the input file, outputting the normalized Deck model representation (JSON):
 ```powershell
-.\.venv\Scripts\python.exe -m Inspects.main layouts Inputs/your_template.pptx
+.\.venv\Scripts\python.exe -m Inspects.main inspect Inputs/your_file.md --format json
 ```
 
-### 2. Slide Shape Coordinates & Text
+### 2. Slide Master Layouts & Placeholders (Inspect Template)
+Inspects layout structures, placeholder names, and type IDs:
+```powershell
+.\.venv\Scripts\python.exe -m Inspects.main inspect-template Inputs/your_template.pptx
+```
+**Options**:
+- `--format {json,text}`: Output format (default: `text`).
+- `--calib`: Extract and output calibration metrics from the first slide.
+
+### 3. Slide Shape Coordinates & Text
 Inspects shapes, bounding boxes, text content, and font sizes:
 ```powershell
 .\.venv\Scripts\python.exe -m Inspects.main shapes Outputs/your_output.pptx
@@ -242,13 +253,13 @@ Inspects shapes, bounding boxes, text content, and font sizes:
 - `--slide N`: Inspect only slide `N` (1-indexed).
 - `--search "query"`: Inspect only slides containing the specified text string.
 
-### 3. Calibration Data
+### 4. Calibration Data
 Inspects the first slide of a template to view the character-per-inch (CPI) and average line height calculated for typography calibration:
 ```powershell
 .\.venv\Scripts\python.exe -m Inspects.main calib Inputs/your_template.pptx
 ```
 
-### 4. Layout Height Comparison (LibreOffice required)
+### 5. Layout Height Comparison (LibreOffice required)
 Converts the presentation using LibreOffice headless mode to recalculate dynamic text box heights, then outputs a markdown table comparing estimated heights with actual rendered heights:
 ```powershell
 .\.venv\Scripts\python.exe -m Inspects.main compare Outputs/your_output.pptx --slide 1

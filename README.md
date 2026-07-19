@@ -60,20 +60,18 @@ python -m venv .venv
 
 CLIのメインエントリポイントは `deck2pptx` です（`python -m deck2pptx` で呼び出し）。以下、概要。
 
+基本は、AI が利用します。
+
 ### 1. `explain-spec`
 AI向けのモデルスキーマ（JSONなど）を出力します。
 
-### 2. `inspect`
-入力ファイルをパースし、標準化された Deck モデルの表現（内部構造）を出力します。
-
-### 3. `inspect-template`
-PowerPoint テンプレート（`.pptx`）のレイアウト構造、プレースホルダー名、およびタイプIDを解析・出力します。
-
-### 4. `validate`
+### 2. `validate`
 入力ファイルが Deck モデルスキーマに準拠しているかバリデーション（妥当性検証）を行います。
 
-### 5. `build`
+### 3. `build`
 入力ファイルから PowerPoint プレゼンテーション（`.pptx`）をビルドして生成します。
+
+*※ 入力ファイルのパース構造確認（`inspect`）やテンプレートの調査（`inspect-template`）など、デバッグおよびインスペクション用のコマンドは `Inspects` パッケージ（`python -m Inspects.main`）に集約されています。*
 
 ---
 

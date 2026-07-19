@@ -38,7 +38,7 @@ def extract_template_info(pptx_path: str | Path, calib: bool = False) -> dict:
     }
     
     if calib and len(prs.slides) > 0:
-        from .height_estimator import extract_template_metrics
+        from deck2pptx.height_estimator import extract_template_metrics
         metrics, title_metrics = extract_template_metrics(prs.slides[0])
         result["calibrated_metrics"] = metrics
         result["title_metrics"] = title_metrics
@@ -56,7 +56,7 @@ def inspect_template(pptx_path: str | Path, output_format: str = 'text', calib: 
         sys.exit(1)
     
     if output_format == 'json':
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         print(f"Template: {result['template']}\n")
         for layout in result['layouts']:

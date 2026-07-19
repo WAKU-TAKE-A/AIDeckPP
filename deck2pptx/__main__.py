@@ -6,7 +6,6 @@ from .adapters import load_deck
 from .validation import validate_deck, ValidationError
 from .renderer import render_deck
 from .spec import get_spec, explain_spec_text
-from .inspect import inspect_deck
 
 def explain_spec(args):
     if getattr(args, 'format', None) == 'json':
@@ -14,20 +13,6 @@ def explain_spec(args):
     else:
         print(explain_spec_text())
 
-def inspect_cmd(args):
-    try:
-        deck = load_deck(args.input_file, format=args.format)
-        data = inspect_deck(deck)
-        if getattr(args, 'output_format', None) == 'json':
-            print(json.dumps(data, indent=2, ensure_ascii=False))
-        else:
-            print(json.dumps(data, indent=2, ensure_ascii=False)) # Default to json for inspect for now
-    except Exception as e:
-        if getattr(args, 'output_format', None) == 'json':
-            print(json.dumps({"ok": False, "errors": [{"message": str(e)}]}), file=sys.stderr)
-        else:
-            print(f"Inspect failed: {e}", file=sys.stderr)
-        sys.exit(1)
 
 def validate_cmd(args):
     is_json = getattr(args, 'output_format', None) == 'json'
@@ -64,9 +49,6 @@ def build_cmd(args):
         print(f"Build failed: {e}", file=sys.stderr)
         sys.exit(1)
 
-def inspect_template_cmd(args):
-    from .inspect_template import inspect_template
-    inspect_template(args.template_file, args.format, getattr(args, 'calib', False))
 
 def main():
     parser = argparse.ArgumentParser(description="Generate PowerPoint from Semantic Deck Format")
@@ -77,19 +59,6 @@ def main():
     p_explain.add_argument('--format', help="Output format (e.g. json)", default=None)
     p_explain.set_defaults(func=explain_spec)
     
-    # Inspect
-    p_inspect = subparsers.add_parser('inspect', help="Inspect input as normalized Deck")
-    p_inspect.add_argument('input_file', help="Path to input YAML or MD file")
-    p_inspect.add_argument('--format', dest="output_format", help="Output format (e.g. json)", default=None)
-    p_inspect.add_argument('--input-format', dest="format", choices=["yaml", "markdown", "asciidoc"], help="Force input format (yaml, markdown, or asciidoc)", default=None)
-    p_inspect.set_defaults(func=inspect_cmd)
-
-    # Inspect Template
-    p_inspect_tmpl = subparsers.add_parser('inspect-template', help="Inspect PPTX template layouts and placeholders")
-    p_inspect_tmpl.add_argument('template_file', help="Path to PPTX template")
-    p_inspect_tmpl.add_argument('--format', choices=["json", "text"], default="text", help="Output format")
-    p_inspect_tmpl.add_argument('--calib', action='store_true', help="Also extract and output calibration metrics from the first slide")
-    p_inspect_tmpl.set_defaults(func=inspect_template_cmd)
     
     # Validate
     p_validate = subparsers.add_parser('validate', help="Validate an input deck")

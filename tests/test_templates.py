@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from deck2pptx.inspect_template import extract_template_info
+from Inspects.template_inspector import extract_template_info
 from deck2pptx.renderer import render_deck
 from deck2pptx.models import Deck, Slide, Text
 from deck2pptx.yaml_adapter import load_yaml
