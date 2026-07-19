@@ -8,8 +8,8 @@ AI フレンドリーな CLI を目指しています。
 
 - 人間向け: この `README.md`
 - AI 向け: `README_AI.md`
-- 詳細なリリース確認: `docs/release-verification.md`
-- ソース管理方針: `docs/source-baseline.md`
+- リリース検証: `scripts/verify_release.ps1`
+- ソース管理: `scripts/check_source_hygiene.ps1`
 
 ## 環境構築
 

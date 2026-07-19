@@ -3,7 +3,6 @@ $ErrorActionPreference = "Stop"
 $expected_source = @(
     "deck2pptx/",
     "tests/",
-    "docs/",
     "scripts/",
     "LICENSE",
     "README.md",

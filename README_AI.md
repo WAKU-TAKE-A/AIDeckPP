@@ -279,7 +279,7 @@ Before reporting completion, run at least:
 - Do not modify project code unless asked.
 - Do not add `x`, `y`, `width`, or `height` fields to Deck input.
 - Do not make the renderer parse YAML or Markdown directly.
-- Do not invent unsupported elements without updating the Deck model, adapters, validation, renderer, spec, docs, and tests together.
+- Do not invent unsupported elements without updating the Deck model, adapters, validation, renderer, spec, and tests together.
 - Do not ignore validation errors.
 - Do not claim a PPTX is ready until validation and build have both succeeded.
 
@@ -287,10 +287,30 @@ Before reporting completion, run at least:
 
 If the user asks you to modify the `deck2pptx` core system (e.g., Python code, renderer logic, adding new elements), you are acting as a **System Developer**, not just a Presentation Author.
 
-In this case, you MUST read the following repository policies before making changes or reporting completion:
-- `docs/source-baseline.md`: Defines which files are tracked source, generated artifacts, and operational data. Used by the hygiene checker.
-- `docs/release-verification.md`: Describes the release gate pipeline and its stages.
+In this case, you MUST read the following scripts before making changes or reporting completion:
 
-Key scripts for system development:
-- `scripts/verify_release.ps1`: Full release verification pipeline (tests → quality gate → negative validation → visual export → clean env → hygiene check).
-- `scripts/check_source_hygiene.ps1`: Validates that the repository contains no unexpected untracked or modified files.
+### Release Verification Pipeline — `scripts/verify_release.ps1`
+
+A strict release gate that fails immediately on any error. Execute with:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify_release.ps1
+```
+
+**Stages** (executed in order):
+1. **Test Suite**: Runs `pytest`.
+2. **Quality Gate**: Invokes all `deck2pptx` CLI commands (`explain-spec`, `inspect`, `validate`, `build`) with auto-generated sample inputs.
+3. **Negative Validation**: Verifies structured errors are emitted for intentionally broken input (`tests/fixtures/multi_error.deck.yaml`).
+4. **Visual Export** (optional): If LibreOffice (`soffice`) is available, exports PPTX to PDF and asserts non-empty output.
+5. **Clean Environment Test**: Creates a temporary venv (`.venv-release`), installs the package, and runs CLI smoke tests.
+6. **Git Hygiene**: Runs `check_source_hygiene.ps1`.
+
+### Source Baseline — `scripts/check_source_hygiene.ps1`
+
+Validates that no unexpected files exist in the repository. The script itself is the authoritative definition of the file categorization:
+
+| Category | Paths (defined in script) | Rule |
+|---|---|---|
+| **Tracked Source** | `deck2pptx/`, `tests/`, `scripts/`, `LICENSE`, `README.md`, `README_AI.md`, `ReferenceSheet.md`, `pyproject.toml`, `.gitignore` | Must be committed |
+| **Generated Artifacts** | `.venv/`, `.venv-release/`, `__pycache__/`, `.pytest_cache/`, `deck2pptx.egg-info/`, `outputs/`, `dist/`, `build/` | Git-ignored, allowed |
+| **Operational / Reference** | `Inputs/`, `examples/`, `_sample/`, `dual-model-operation-kit/`, `Inspects/` | Allowed untracked |
+| **Anything else** | — | **Fails the gate** |
